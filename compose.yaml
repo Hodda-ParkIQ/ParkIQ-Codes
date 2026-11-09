@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_USER: parkiq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-parkiq}
+      POSTGRES_DB: parkiq
+    volumes:
+      - parkiq-data:/var/lib/postgresql/data
+      - ./db/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U parkiq -d parkiq"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  app:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      DATA_MODE: ${DATA_MODE:-demo}
+      REPOSITORY: postgres
+      DATABASE_URL: postgresql://parkiq:${POSTGRES_PASSWORD:-parkiq}@db:5432/parkiq
+      SEOUL_API_KEY: ${SEOUL_API_KEY:-}
+      SEOUL_BASE_URL: ${SEOUL_BASE_URL:-http://openapi.seoul.go.kr:8088}
+      PRIVATE_API_URL: ${PRIVATE_API_URL:-}
+      PRIVATE_API_KEY: ${PRIVATE_API_KEY:-}
+      ROUTING_API_URL: ${ROUTING_API_URL:-}
+      ROUTING_API_KEY: ${ROUTING_API_KEY:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      SYNC_ENABLED: ${SYNC_ENABLED:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  parkiq-data:

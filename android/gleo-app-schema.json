@@ -1,0 +1,46 @@
+{
+  "packageName": "ai.parkiq.vehicle",
+  "appDescription": "ParkIQ recommends parking near a destination using driving time, walking distance, parking availability and price.",
+  "invokeWord": "파크아이큐",
+  "version": "1.2.0",
+  "actionCalls": [
+    {
+      "type": "function",
+      "function": {
+        "name": "SEARCH_PARKING",
+        "description": "Find parking near a supported destination with a walking, time or price preference.",
+        "component": "activity",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {"type": "string", "description": "The destination name."},
+            "preference": {"type": "string", "description": "The parking ranking preference.", "enum": ["balanced", "less_walking", "fastest", "cheapest"]}
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "START_PARKING_ROUTE",
+        "description": "Start navigation to a parking facility selected by its rank in the current recommendation list.",
+        "component": "activity",
+        "parameters": {
+          "type": "object",
+          "properties": {"rank": {"type": "number", "description": "The one-based rank of the selected parking recommendation."}},
+          "required": ["rank"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "CANCEL_PARKING_ROUTE",
+        "description": "Cancel the current parking navigation route.",
+        "component": "activity",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+      }
+    }
+  ]
+}
