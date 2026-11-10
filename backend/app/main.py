@@ -52,7 +52,8 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
     app.state.repo, app.state.pipeline = repo, pipeline
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=settings.cors_origins
+        + [o.strip().rstrip("/") for o in settings.cors_extra_origins.split(",") if o.strip()],
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "Authorization"],
     )
@@ -132,8 +133,14 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
     dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
     # In the source checkout frontend is alongside backend; in Docker it is /app/frontend/dist.
     dist = dist if dist.exists() else Path(__file__).resolve().parents[3] / "frontend" / "dist"
-    if dist.is_dir():
+    if settings.serve_frontend and dist.is_dir():
         app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+    else:
+
+        @app.get("/", include_in_schema=False)
+        async def root():
+            return {"service": "ParkIQ API", "health": "/api/health", "docs": "/docs"}
+
     return app
 
 

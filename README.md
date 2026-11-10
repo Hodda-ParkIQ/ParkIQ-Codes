@@ -70,6 +70,22 @@ docker compose up --build -d
 
 이미 8000 포트에서 로컬 서버가 실행 중이면 먼저 종료하세요. `docker compose down`으로 종료하며, DB 볼륨은 유지합니다.
 
+### 백엔드만 호스팅
+
+프론트엔드를 다른 곳(정적 호스팅, 차량 앱 내장 등)에서 제공하고 서버는 API만 띄울 때 사용합니다. `.env`에 다음을 지정합니다.
+
+```bash
+APP_TARGET=api          # Docker 이미지에서 프론트엔드 빌드(Node)를 생략
+SERVE_FRONTEND=false    # 빌드된 화면이 있어도 / 에 마운트하지 않음
+CORS_EXTRA_ORIGINS=https://web.example.com   # 프론트엔드 주소(쉼표로 여러 개)
+```
+
+```bash
+docker compose up -d --build app
+```
+
+`/`는 API 안내 JSON을 반환하고, API는 그대로 `/api/*`에서 제공합니다. 이미지만 빌드할 때는 `docker build --target api -t parkiq-api .`를 사용합니다. Docker 없이 실행할 때는 `SERVE_FRONTEND=false`만 지정하면 됩니다. 프론트엔드는 빌드 시 `VITE_API_BASE_URL`이나 앱 설정 화면에서 이 서버 주소를 지정합니다. 기본값(`APP_TARGET=full`, `SERVE_FRONTEND=true`)은 기존처럼 앱과 API를 함께 제공합니다.
+
 ## 구현 기능
 
 - 목적지 반경 최대 2km의 주차장 탐색: PostGIS `ST_DWithin`, GiST, KNN 정렬

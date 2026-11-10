@@ -14,7 +14,10 @@ services:
       timeout: 3s
       retries: 12
   app:
-    build: .
+    build:
+      context: .
+      # full = API + frontend, api = backend only (APP_TARGET=api)
+      target: ${APP_TARGET:-full}
     ports: ["127.0.0.1:8000:8000"]
     environment:
       DATA_MODE: ${DATA_MODE:-demo}
@@ -29,6 +32,8 @@ services:
       VALHALLA_URL: ${VALHALLA_URL:-}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
       SYNC_ENABLED: ${SYNC_ENABLED:-false}
+      SERVE_FRONTEND: ${SERVE_FRONTEND:-true}
+      CORS_EXTRA_ORIGINS: ${CORS_EXTRA_ORIGINS:-}
     depends_on:
       db:
         condition: service_healthy

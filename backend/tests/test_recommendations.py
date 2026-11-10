@@ -129,3 +129,22 @@ def test_places_search_includes_parking_lots(client):
     hits = client.get("/api/places", params={"q": "공영"}).json()["places"]
     assert hits and all(p["category"] == "주차장" and p["id"].startswith("lot:") for p in hits)
     assert client.get("/api/places", params={"q": "%_"}).json()["places"] == []
+
+
+def test_backend_only_mode_serves_api_without_frontend():
+    settings = Settings(
+        _env_file=None,
+        serve_frontend=False,
+        cors_extra_origins="https://web.example.com/, ",
+    )
+    with TestClient(create_app(settings)) as api_only:
+        assert api_only.get("/").json()["service"] == "ParkIQ API"
+        assert api_only.get("/api/health").status_code == 200
+        preflight = api_only.options(
+            "/api/places",
+            headers={
+                "Origin": "https://web.example.com",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert preflight.headers["access-control-allow-origin"] == "https://web.example.com"

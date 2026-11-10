@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     sync_interval_seconds: int = 300
     sync_enabled: bool = False
     stale_after_seconds: int = 600
+    # false = API-only hosting: never mount the built frontend, even if present.
+    serve_frontend: bool = True
+    # Comma-separated origins added to cors_origins, e.g. where the separately
+    # hosted frontend lives: https://app.example.com,https://other.example.com
+    cors_extra_origins: str = ""
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
