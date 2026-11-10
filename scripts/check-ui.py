@@ -38,7 +38,7 @@ def run():
         """)
         page.goto(target, wait_until="networkidle")
         expect(page.locator(".parking-card")).to_have_count(3)
-        expect(page.locator(".map-pin")).to_have_count(3)
+        expect(page.locator(".osm-pin")).to_have_count(3)
         first_page = page.locator(".parking-card h3").all_inner_texts()
         page.get_by_role("button", name="다음 주차장", exact=True).click()
         expect(page.locator(".list-pagination")).to_contain_text("2 / 2")

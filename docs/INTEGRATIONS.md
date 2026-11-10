@@ -39,6 +39,12 @@
 
 기본정보와 실시간 목록이 성공한 뒤 provider snapshot을 한 트랜잭션으로 업서트합니다. 오류 시 이전 데이터를 보존하고 원본 관측 시각을 바꾸지 않습니다. 응답에서 사라진 시설은 삭제하지 않으므로 공급자 계약에 따라 장기 미관측 시설의 폐쇄/삭제 상태를 별도 수집해야 합니다. 현재 오래된 자료는 미확인·불확실성 패널티로 처리합니다. 서로 다른 공급자의 동일 물리 시설 자동 중복 제거는 구현하지 않았습니다.
 
+### 성동구 누락 좌표 보완
+
+서울시 기본정보에서 `LAT/LOT`가 0 또는 유효 범위 밖인 성동구 시설은 [공단에서 공개한 API](https://www.happysd.or.kr/c_75/cnt/m_108/view.do) `https://parking.happysd.or.kr/OpenApi/sdPublicParkingList`의 WGS84 좌표를 참조합니다. 인증키 없이 공개된 JSON 목록입니다. 시설명에서 공통 접미사/공백만 정규화하고, 성동구의 동·가와 지번이 모두 같은 경우에만 매칭합니다. 후보 좌표가 중복·상충하면 보완하지 않습니다. 유효한 원본 좌표도 덮어쓰지 않습니다.
+
+시설 ID·요금·수용 대수·실시간 관측 시각은 계속 서울시 자료를 사용합니다. 보완 레코드는 `coordinate_source=seongdong_public_parking`, 기존 좌표는 `coordinate_source=seoul`입니다. 참조 API가 실패하면 원본에서 유효한 시설만 유지하고 진단에 `coordinate_reference=unavailable`을 기록합니다. 잔여 대수 미제공을 주차 가능으로 간주하지 않습니다.
+
 ## 민간 주차 플랫폼 어댑터
 
 `GET PRIVATE_API_URL` + `Authorization: Bearer PRIVATE_API_KEY`
@@ -103,7 +109,7 @@
 | `voice.speak` | Android TTS로 `text` 재생 |
 | `gleo.respond` | 대기 Gleo 호출에 공식 응답 Broadcast 전송 |
 
-UI는 APK assets의 `index.html`, JS/CSS, 폰트를 `WebViewAssetLoader`로 로드합니다. `https://appassets.androidplatform.net/index.html`만 브리지 호출을 허용하며 외부 문서 탐색·네트워크 리소스를 차단합니다. 파일 접근은 비활성화합니다. `window.ParkIQNative.getDefaultBackendUrl()`은 빌드 기본 API 주소만 반환합니다.
+UI는 APK assets의 `index.html`, JS/CSS, 폰트를 `WebViewAssetLoader`로 로드합니다. `https://appassets.androidplatform.net/index.html`만 브리지 호출을 허용하며 외부 문서 탐색·네트워크 리소스를 차단합니다. 파일 접근은 비활성화합니다. `window.ParkIQNative.getDefaultBackendUrl()`은 빌드 기본 API 주소만 반환합니다. `isDebugBuild()`은 테스트 위치 편집 가능 여부를 알려주며, 릴리스에서는 false입니다. OSM 타일은 HTTPS `tile.openstreetmap.org/{z}/{x}/{y}.png` GET만 리소스 허용 목록에 포함합니다. 외부 문서나 스크립트에는 브리지를 제공하지 않습니다.
 
 `backend.request`는 네이티브 작업 스레드에서 명시한 서버에 HTTP 요청합니다. 인증 정보·쿼리·fragment가 있는 URL, 미허용 경로/메서드, redirect는 거부합니다. HTTP는 디버그만, 릴리스는 HTTPS만 허용합니다. API 주소를 바꾸더라도 브리지 권한을 가진 화면의 origin은 바뀌지 않습니다. 소스 프로젝트에는 비밀키·릴리스 서명 키가 없습니다.
 

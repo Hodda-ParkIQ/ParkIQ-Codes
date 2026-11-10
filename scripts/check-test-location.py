@@ -153,7 +153,10 @@ def run():
 
                 def backend(params):
                     response = client.request(
-                        params["method"], "/api" + params["path"], content=params.get("body")
+                        params["method"],
+                        "/api" + params["path"],
+                        content=params.get("body"),
+                        headers={"Content-Type": "application/json"} if params.get("body") else {},
                     )
                     if params["path"] == "/recommendations":
                         requests.append(json.loads(params["body"]))
