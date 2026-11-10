@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     private_api_key: SecretStr = SecretStr("")
     routing_api_url: str = ""
     routing_api_key: SecretStr = SecretStr("")
+    # Self-hosted Valhalla (OSM) base URL, e.g. http://valhalla:8002
+    valhalla_url: str = ""
     admin_api_key: SecretStr = SecretStr("")
     sync_interval_seconds: int = 300
     sync_enabled: bool = False

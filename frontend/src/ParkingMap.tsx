@@ -1,5 +1,7 @@
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { LocateFixed, Minus, Navigation2, Plus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { Candidate, Place, Point } from "./types";
 
 type Props = {
@@ -12,6 +14,13 @@ type Props = {
   navigating: boolean;
   moving: boolean;
 };
+
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
+
+const toLatLng = (p: Point): L.LatLngTuple => [p.lat, p.lng];
+
 export default function ParkingMap({
   candidates,
   ranks,
@@ -23,415 +32,174 @@ export default function ParkingMap({
   moving,
 }: Props) {
   const element = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 1000, height: 600 });
-  const [zoom, setZoom] = useState(1);
+  const mapRef = useRef<L.Map | null>(null);
+  const overlayRef = useRef<L.LayerGroup | null>(null);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+
+  // 지도 인스턴스는 한 번만 생성
   useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-      const box = entries[0]?.contentRect;
-      if (box?.width && box.height)
-        setSize({ width: box.width, height: box.height });
+    if (!element.current) return;
+    const map = L.map(element.current, {
+      zoomControl: false,
+      attributionControl: true,
+      center: toLatLng(destination),
+      zoom: 15,
+      maxZoom: 19,
+      minZoom: 11,
     });
-    if (element.current) observer.observe(element.current);
-    return () => observer.disconnect();
+    map.attributionControl.setPrefix(false);
+    L.tileLayer(TILE_URL, { maxZoom: 19, attribution: ATTRIBUTION }).addTo(
+      map,
+    );
+    overlayRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(element.current);
+    return () => {
+      observer.disconnect();
+      map.remove();
+      mapRef.current = null;
+      overlayRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const project = useMemo(() => {
-    const points = [origin, destination, ...candidates.map((c) => c.lot)];
-    const minLng = Math.min(...points.map((p) => p.lng)),
-      maxLng = Math.max(...points.map((p) => p.lng));
-    const minLat = Math.min(...points.map((p) => p.lat)),
-      maxLat = Math.max(...points.map((p) => p.lat));
-    const centerLng = (minLng + maxLng) / 2,
-      centerLat = (minLat + maxLat) / 2;
-    const horizontal = 111000 * Math.cos((centerLat * Math.PI) / 180);
-    const scale = Math.max(
-      0.01,
-      Math.min(
-        (size.width - 150) / Math.max(1800, (maxLng - minLng) * horizontal),
-        (size.height - 145) / Math.max(1200, (maxLat - minLat) * 111000),
-      ),
-    );
-    return (p: Point) => [
-      size.width / 2 + (p.lng - centerLng) * horizontal * scale,
-      size.height / 2 - (p.lat - centerLat) * 111000 * scale,
+
+  const fitAll = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = L.latLngBounds([
+      toLatLng(origin),
+      toLatLng(destination),
+      ...candidates.map((c) => toLatLng(c.lot)),
+    ]);
+    map.fitBounds(bounds, {
+      paddingTopLeft: [90, 140],
+      paddingBottomRight: [90, 100],
+      maxZoom: 17,
+    });
+  };
+
+  // 후보·목적지·출발지가 바뀌면 화면 맞춤
+  const boundsKey = [
+    origin.lat,
+    origin.lng,
+    destination.id,
+    ...candidates.map((c) => c.lot.id),
+  ].join("|");
+  useEffect(() => {
+    fitAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boundsKey]);
+
+  // 주행 중에는 지도 조작 잠금
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const handlers = [
+      map.dragging,
+      map.scrollWheelZoom,
+      map.doubleClickZoom,
+      map.touchZoom,
+      map.boxZoom,
+      map.keyboard,
     ];
-  }, [origin, destination, candidates, size]);
-  const path = (points: Point[]) =>
-    points.map((p, i) => `${i ? "L" : "M"}${project(p).join(" ")}`).join(" ");
-  const road = (coords: number[][]) =>
-    path(coords.map(([lat, lng]) => ({ lat, lng })));
-  const [dx, dy] = project(destination),
-    [ox, oy] = project(origin);
-  const markers = useMemo(() => {
-    type Rect = { x: number; y: number; width: number; height: number };
-    const occupied: Rect[] = [
-      { x: 12, y: 10, width: 230, height: 52 },
-      { x: 12, y: 73, width: 215, height: 53 },
-      { x: size.width - 80, y: 10, width: 70, height: 72 },
-      { x: size.width - 220, y: size.height - 88, width: 210, height: 80 },
-      { x: dx + 15, y: dy - 56, width: 82, height: 40 },
-      { x: ox - 25, y: oy - 25, width: 50, height: 50 },
-    ];
-    const intersects = (a: Rect, b: Rect) =>
-      a.x < b.x + b.width + 7 &&
-      a.x + a.width + 7 > b.x &&
-      a.y < b.y + b.height + 7 &&
-      a.y + a.height + 7 > b.y;
-    const placements: Record<
-      string,
-      { x: number; y: number; ax: number; ay: number }
-    > = {};
-    const ordered = [...candidates].sort(
-      (a, b) =>
-        Number(b.lot.id === selected?.lot.id) -
-        Number(a.lot.id === selected?.lot.id),
-    );
-    const offsets = [
-      [0, 0],
-      [0, -82],
-      [82, 0],
-      [-82, 0],
-      [0, 82],
-      [-82, -82],
-      [82, -82],
-      [-82, 82],
-      [82, 82],
-      [0, -164],
-      [164, 0],
-      [-164, 0],
-      [0, 164],
-      [-164, -82],
-      [164, -82],
-      [-164, 82],
-      [164, 82],
-    ];
-    for (const candidate of ordered) {
-      const [ax, ay] = project(candidate.lot);
-      let position = { x: ax, y: ay };
-      for (const [offsetX, offsetY] of offsets) {
-        const x = Math.max(40, Math.min(size.width - 40, ax + offsetX));
-        const y = Math.max(40, Math.min(size.height - 45, ay + offsetY));
-        const bounds = { x: x - 32, y: y - 32, width: 64, height: 72 };
-        if (!occupied.some((rect) => intersects(bounds, rect))) {
-          position = { x, y };
-          occupied.push(bounds);
-          break;
-        }
-      }
-      placements[candidate.lot.id] = { ...position, ax, ay };
+    handlers.forEach((h) => (moving ? h.disable() : h.enable()));
+  }, [moving]);
+
+  // 경로·마커 다시 그리기
+  useEffect(() => {
+    const group = overlayRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    if (selected) {
+      const drive = selected.drive_path.map(toLatLng);
+      const walk = selected.walk_path.map(toLatLng);
+      const state = navigating ? " active" : "";
+      L.polyline(drive, {
+        weight: 12,
+        lineJoin: "round",
+        interactive: false,
+        className: `osm-drive-casing${state}`,
+      }).addTo(group);
+      L.polyline(drive, {
+        weight: 7,
+        lineJoin: "round",
+        interactive: false,
+        className: `osm-drive${state}`,
+      }).addTo(group);
+      L.polyline(walk, {
+        className: "osm-walk",
+        weight: 5,
+        dashArray: "3 9",
+        lineCap: "round",
+        interactive: false,
+      }).addTo(group);
     }
-    return placements;
-  }, [candidates, selected?.lot.id, project, size, dx, dy, ox, oy]);
-  const roads = [
-    [
-      [37.552, 127.027],
-      [37.5446, 127.0559],
-      [37.541, 127.07],
-    ],
-    [
-      [37.5467, 127.028],
-      [37.5405, 127.0559],
-      [37.5374, 127.07],
-    ],
-    [
-      [37.556, 127.0415],
-      [37.534, 127.0415],
-    ],
-    [
-      [37.556, 127.0528],
-      [37.534, 127.0528],
-    ],
-    [
-      [37.556, 127.0602],
-      [37.534, 127.0602],
-    ],
-    [
-      [37.5451, 127.04],
-      [37.5449, 127.053],
-      [37.5435, 127.067],
-    ],
-    [
-      [37.55, 127.047],
-      [37.534, 127.047],
-    ],
-    [
-      [37.55, 127.056],
-      [37.534, 127.056],
-    ],
-  ];
+
+    L.marker(toLatLng(destination), {
+      icon: L.divIcon({
+        className: "osm-destination",
+        html: '<span class="osm-destination-dot"></span><span class="osm-destination-label">목적지</span>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      }),
+      keyboard: false,
+      interactive: false,
+      zIndexOffset: 500,
+    }).addTo(group);
+
+    for (const candidate of candidates) {
+      const active = selected?.lot.id === candidate.lot.id;
+      const rank = ranks[candidate.lot.id];
+      const marker = L.marker(toLatLng(candidate.lot), {
+        icon: L.divIcon({
+          className: `osm-pin ${active ? "active" : ""}`,
+          html: `<span class="osm-pin-box">P<small>${rank ?? ""}</small></span>${active ? '<span class="osm-pin-tail"></span>' : ""}`,
+          iconSize: [56, 64],
+          iconAnchor: [28, 64],
+        }),
+        title: `${rank}번 ${candidate.lot.name} 선택`,
+        alt: `${rank}번 ${candidate.lot.name}`,
+        riseOnHover: true,
+        zIndexOffset: active ? 1000 : 0,
+      });
+      marker.on("click", () => onSelectRef.current(candidate.lot.id));
+      marker.addTo(group);
+      const el = marker.getElement();
+      if (el) {
+        el.setAttribute("role", "button");
+        el.setAttribute("aria-label", `${rank}번 ${candidate.lot.name} 선택`);
+        el.setAttribute("aria-pressed", String(active));
+      }
+    }
+
+    L.marker(toLatLng(origin), {
+      icon: L.divIcon({
+        className: "osm-origin",
+        html: '<span class="osm-origin-halo"></span><span class="osm-origin-dot"><svg viewBox="-10 -10 20 20" width="20" height="20"><path d="M0 -10L8 8L0 4L-8 8Z" fill="#fff"/></svg></span>',
+        iconSize: [52, 52],
+        iconAnchor: [26, 26],
+      }),
+      keyboard: false,
+      interactive: false,
+      zIndexOffset: 2000,
+    }).addTo(group);
+  }, [candidates, ranks, selected, destination, origin, navigating]);
+
   return (
-    <div className="map" ref={element}>
+    <div className="map">
+      <div
+        className="map-leaflet"
+        ref={element}
+        aria-label="OpenStreetMap 주차장 위치 지도. 파란색은 차량 이동, 점선은 도보 이동 예시입니다."
+        role="region"
+      />
       <div className="map-top">
         <span className="map-area-name">목적지 주변</span>
-        <span className="map-type">예시 지도</span>
+        <span className="map-type">OpenStreetMap</span>
       </div>
-      <svg
-        className="map-svg"
-        viewBox={`${(size.width - size.width / zoom) / 2} ${(size.height - size.height / zoom) / 2} ${size.width / zoom} ${size.height / zoom}`}
-        aria-label="주차장 위치 개략도. 파란색은 차량 이동, 점선은 도보 이동 예시입니다."
-        role="img"
-      >
-        <defs>
-          <pattern
-            id="city-blocks"
-            width="112"
-            height="96"
-            patternUnits="userSpaceOnUse"
-            patternTransform="rotate(13)"
-          >
-            <path d="M0 0H112V96H0Z" fill="var(--map-land)" />
-            <rect
-              x="12"
-              y="13"
-              width="38"
-              height="27"
-              rx="2"
-              fill="var(--map-building)"
-            />
-            <rect
-              x="58"
-              y="13"
-              width="40"
-              height="27"
-              rx="2"
-              fill="var(--map-building)"
-            />
-            <rect
-              x="12"
-              y="48"
-              width="55"
-              height="34"
-              rx="2"
-              fill="var(--map-building)"
-            />
-            <rect
-              x="75"
-              y="48"
-              width="23"
-              height="34"
-              rx="2"
-              fill="var(--map-building)"
-            />
-            <path
-              d="M0 0H112M0 0V96"
-              fill="none"
-              stroke="var(--map-small-road)"
-              strokeWidth="8"
-            />
-          </pattern>
-        </defs>
-        <rect
-          x="-2500"
-          y="-2500"
-          width="6000"
-          height="6000"
-          fill="url(#city-blocks)"
-        />
-        <path
-          d={road([
-            [37.5407, 127.025],
-            [37.5412, 127.035],
-            [37.5365, 127.045],
-            [37.531, 127.07],
-          ])}
-          fill="none"
-          stroke="var(--map-river)"
-          strokeWidth="100"
-        />
-        <path
-          d={
-            road([
-              [37.548, 127.032],
-              [37.547, 127.039],
-              [37.541, 127.04],
-              [37.54, 127.033],
-            ]) + " Z"
-          }
-          fill="var(--map-park)"
-        />
-        {roads.map((coords, index) => (
-          <g key={index}>
-            <path
-              d={road(coords)}
-              fill="none"
-              stroke="var(--map-road-edge)"
-              strokeWidth={index < 2 ? 25 : 14}
-            />
-            <path
-              d={road(coords)}
-              fill="none"
-              stroke="var(--map-road)"
-              strokeWidth={index < 2 ? 21 : 11}
-            />
-            {index < 2 && (
-              <path
-                d={road(coords)}
-                fill="none"
-                stroke="var(--map-road-center)"
-                strokeWidth="1.5"
-              />
-            )}
-          </g>
-        ))}
-        <text
-          {...label(project({ lat: 37.547, lng: 127.049 }))}
-          className="district-label"
-        >
-          성수동
-        </text>
-        <text
-          {...label(project({ lat: 37.545, lng: 127.0368 }))}
-          className="park-label"
-        >
-          서울숲
-        </text>
-        <text
-          {...label(project({ lat: 37.5462, lng: 127.057 }))}
-          className="road-label"
-        >
-          성수역
-        </text>
-        <text
-          {...label(project({ lat: 37.55, lng: 127.0408 }))}
-          className="road-label"
-        >
-          아차산로
-        </text>
-        <text
-          {...label(project({ lat: 37.5389, lng: 127.053 }))}
-          className="road-label"
-        >
-          뚝섬로
-        </text>
-        {selected && (
-          <g className="route-lines" data-active={navigating}>
-            <path
-              d={path(selected.drive_path)}
-              fill="none"
-              stroke="var(--map-route-casing)"
-              strokeWidth="12"
-              strokeLinejoin="round"
-            />
-            <path
-              d={path(selected.drive_path)}
-              fill="none"
-              stroke="var(--map-route)"
-              strokeWidth="7"
-              strokeLinejoin="round"
-            />
-            <path
-              d={path(selected.walk_path)}
-              fill="none"
-              stroke="var(--map-walk)"
-              strokeWidth="5"
-              strokeDasharray="3 9"
-              strokeLinecap="round"
-            />
-          </g>
-        )}
-        <g transform={`translate(${dx} ${dy})`}>
-          <circle
-            r="9"
-            fill="var(--map-destination)"
-            stroke="var(--map-road)"
-            strokeWidth="3"
-          />
-          <rect
-            x="18"
-            y="-54"
-            width="79"
-            height="36"
-            rx="4"
-            fill="var(--map-label-background)"
-          />
-          <text x="30" y="-29" className="destination-map-label">
-            목적지
-          </text>
-        </g>
-        {candidates.map((candidate) => {
-          const { x, y, ax, ay } = markers[candidate.lot.id],
-            active = selected?.lot.id === candidate.lot.id;
-          return (
-            <g key={candidate.lot.id}>
-              {(Math.abs(x - ax) > 5 || Math.abs(y - ay) > 5) && (
-                <g pointerEvents="none">
-                  <path
-                    d={`M${ax} ${ay}L${x} ${y}`}
-                    fill="none"
-                    stroke="var(--map-pin-border)"
-                    strokeWidth="1.5"
-                  />
-                  <circle cx={ax} cy={ay} r="4" fill="var(--map-pin-active)" />
-                </g>
-              )}
-              <g
-                className={`map-pin ${active ? "active" : ""}`}
-                transform={`translate(${x} ${y})`}
-                role="button"
-                tabIndex={0}
-                aria-label={`${ranks[candidate.lot.id]}번 ${candidate.lot.name} 선택`}
-                aria-pressed={active}
-                onClick={() => onSelect(candidate.lot.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(candidate.lot.id);
-                  }
-                }}
-              >
-                <rect
-                  x="-36"
-                  y="-36"
-                  width="72"
-                  height="76"
-                  fill="transparent"
-                  stroke="none"
-                />
-                <rect
-                  x="-32"
-                  y="-32"
-                  width="64"
-                  height="64"
-                  rx="8"
-                  fill={
-                    active
-                      ? "var(--map-pin-active)"
-                      : "var(--map-pin-background)"
-                  }
-                  stroke={
-                    active ? "var(--map-pin-active)" : "var(--map-pin-border)"
-                  }
-                  strokeWidth="2"
-                />
-                <text
-                  y="9"
-                  textAnchor="middle"
-                  fontSize="24"
-                  fontWeight="650"
-                  fill={active ? "#fff" : "var(--map-pin-text)"}
-                >
-                  P
-                  <tspan dx="3" fontSize="20">
-                    {ranks[candidate.lot.id]}
-                  </tspan>
-                </text>
-                {active && (
-                  <path d="M-7 32L0 40L7 32" fill="var(--map-pin-active)" />
-                )}
-              </g>
-            </g>
-          );
-        })}
-        <g transform={`translate(${ox} ${oy})`}>
-          <circle r="26" fill="var(--map-location-halo)" />
-          <circle
-            r="17"
-            fill="var(--map-route)"
-            stroke="#fff"
-            strokeWidth="3"
-          />
-          <path d="M0 -10L8 8L0 4L-8 8Z" fill="#fff" />
-        </g>
-      </svg>
       <div className="map-legend">
         <span>
           <i className="drive-line" />
@@ -450,30 +218,27 @@ export default function ParkingMap({
         <button
           className="map-control"
           aria-label="지도 확대"
-          disabled={moving || zoom >= 1.7}
-          onClick={() => setZoom(Math.min(1.7, zoom + 0.2))}
+          disabled={moving}
+          onClick={() => mapRef.current?.zoomIn()}
         >
           <Plus size={27} />
         </button>
         <button
           className="map-control"
           aria-label="지도 축소"
-          disabled={moving || zoom <= 0.7}
-          onClick={() => setZoom(Math.max(0.7, zoom - 0.2))}
+          disabled={moving}
+          onClick={() => mapRef.current?.zoomOut()}
         >
           <Minus size={27} />
         </button>
         <button
           className="map-control"
           aria-label="지도 중심으로"
-          onClick={() => setZoom(1)}
+          onClick={fitAll}
         >
           <LocateFixed size={27} />
         </button>
       </div>
     </div>
   );
-}
-function label([x, y]: number[]) {
-  return { x, y, textAnchor: "middle" as const };
 }

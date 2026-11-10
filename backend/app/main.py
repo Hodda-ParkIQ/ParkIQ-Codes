@@ -67,7 +67,13 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
                 "mode": settings.data_mode,
                 "repository": settings.repository,
                 "providers": pipeline.status,
-                "routing": "provider" if settings.routing_api_url else "distance_estimate",
+                "routing": (
+                    "provider"
+                    if settings.routing_api_url
+                    else "valhalla"
+                    if settings.valhalla_url
+                    else "distance_estimate"
+                ),
                 "configured_providers": [p.name for p in pipeline.providers],
             },
         )

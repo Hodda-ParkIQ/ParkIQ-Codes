@@ -592,13 +592,6 @@ p {
   overflow: hidden;
   background: var(--map-land);
 }
-.map-svg {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  inset: 0;
-  display: block;
-}
 .map-top {
   position: absolute;
   z-index: 1;
@@ -705,40 +698,126 @@ p {
 .map-legend .walk-line {
   border-top: 4px dotted var(--map-walk);
 }
-.district-label {
+.map-leaflet {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--map-land);
   font-family: inherit;
-  font-size: 27px;
-  font-weight: 500;
-  fill: var(--secondary);
-  letter-spacing: 6px;
 }
-.park-label {
-  font-family: inherit;
-  font-size: 20px;
-  fill: var(--success);
-  letter-spacing: 3px;
+.map > :not(.map-leaflet) {
+  z-index: 500;
 }
-.road-label {
-  font-family: inherit;
+.app-shell[data-theme="dark"] .map-leaflet .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9)
+    saturate(0.6);
+}
+.map-leaflet .leaflet-control-attribution {
+  background: var(--map-label-background);
+  color: var(--secondary);
+  font-size: 11px;
+}
+.map-leaflet .leaflet-control-attribution a {
+  color: var(--map-route);
+}
+.map-controls {
+  bottom: 34px;
+}
+.map-legend {
+  bottom: 44px;
+}
+.osm-drive-casing {
+  stroke: var(--map-route-casing);
+}
+.osm-drive {
+  stroke: var(--map-route);
+}
+.osm-walk {
+  stroke: var(--map-walk);
+}
+.osm-destination,
+.osm-origin,
+.osm-pin {
+  background: none;
+  border: none;
+}
+.osm-destination-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--map-destination);
+  border: 3px solid var(--map-road);
+  box-sizing: border-box;
+}
+.osm-destination-label {
+  position: absolute;
+  left: 22px;
+  top: -40px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: var(--map-label-background);
+  color: var(--text);
   font-size: 17px;
-  fill: var(--secondary);
-  paint-order: stroke;
-  stroke: var(--map-land);
-  stroke-width: 4px;
-}
-.destination-map-label {
-  fill: var(--text);
-  font-family: inherit;
-  font-size: 17px;
   font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #0002;
 }
-.map-pin {
+.osm-origin-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--map-location-halo);
+}
+.osm-origin-dot {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: var(--map-route);
+  border: 3px solid #fff;
+  display: grid;
+  place-items: center;
+}
+.osm-pin {
   cursor: pointer;
 }
-.map-pin:hover rect,
-.map-pin:focus-visible rect {
-  stroke: var(--map-route);
-  stroke-width: 4;
+.osm-pin-box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 56px;
+  height: 56px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 8px;
+  border: 2px solid var(--map-pin-border);
+  background: var(--map-pin-background);
+  color: var(--map-pin-text);
+  font-size: 22px;
+  font-weight: 650;
+  box-shadow: 0 2px 6px #0003;
+}
+.osm-pin-box small {
+  font-size: 18px;
+}
+.osm-pin.active .osm-pin-box {
+  background: var(--map-pin-active);
+  border-color: var(--map-pin-active);
+  color: #fff;
+}
+.osm-pin-tail {
+  position: absolute;
+  left: 21px;
+  top: 55px;
+  border: 7px solid transparent;
+  border-top: 8px solid var(--map-pin-active);
+}
+.osm-pin:hover .osm-pin-box,
+.osm-pin:focus-visible .osm-pin-box {
+  border-color: var(--map-route);
+  border-width: 4px;
 }
 .route-summary {
   padding: 18px 28px 22px;

@@ -116,7 +116,15 @@ score = 주행분 + 탐색분 + (도보분 × 보행가중치)
 
 주차 탐색 시간은 현재 점유율 기반 휴리스틱입니다. 이는 **학습된 AI 예측이나 검증된 만차 확률이 아닙니다**. 운전자 선호도에 따라 설명 가능한 가중치를 적용합니다.
 
-`ROUTING_API_URL` 미설정 시 주행 거리는 직선거리 × 1.35, 도보 거리는 직선거리 × 1.2로 추정합니다. 주행 속도 15km/h, 도보 속도 4.5km/h 가정이며 **실시간 교통·실제 보행로를 반영하지 않습니다**. 지도는 시연용 SVG 개략도이며 실제 길 안내 지도가 아닙니다. 계약된 교통/경로 제공자를 연결하면 API의 시간·geometry를 사용할 수 있지만 화면 배경은 계속 개략도입니다.
+경로 계산 우선순위는 `ROUTING_API_URL`(계약 공급자) → `VALHALLA_URL`(셀프호스팅 OSM 경로 엔진) → 거리 추정입니다. 둘 다 없거나 실패하면 주행 거리는 직선거리 × 1.35, 도보 거리는 직선거리 × 1.2로 추정합니다. 주행 속도 15km/h, 도보 속도 4.5km/h 가정이며 **실시간 교통·실제 보행로를 반영하지 않습니다**. 지도 배경은 OpenStreetMap 타일입니다.
+
+Valhalla는 무료 오픈소스 경로 엔진으로, OSM 한국 데이터로 실제 도로·보행로를 따라가는 차량·도보 경로를 계산합니다(실시간 교통 미반영).
+
+```bash
+VALHALLA_URL=http://valhalla:8002 docker compose --profile routing up -d
+```
+
+첫 실행 때 Geofabrik에서 `south-korea-latest.osm.pbf`를 받아 타일을 생성하므로 수십 분과 RAM 4GB 이상이 필요합니다. 결과는 `valhalla-data` 볼륨에 보존되어 다음 실행부터는 바로 뜹니다. 진행 상황은 `docker compose logs -f valhalla`, 준비 여부는 `curl localhost:8002/status`로 확인합니다. Docker 없이 백엔드를 실행할 때는 `VALHALLA_URL=http://localhost:8002`를 사용합니다. `/api/health`의 `routing` 값이 `valhalla`로, 추천 응답의 `routing_source`가 `valhalla`로 표시됩니다.
 
 목적지 검색은 사전 등록된 성수 지역 4곳입니다. 전국 장소 검색/지오코딩, 예약·결제, EV 충전 잔여 상태 예측, 학습 모델, 전국 지자체 수집은 현재 범위에 포함되지 않습니다. 추천 API 자체는 임의의 목적지 좌표를 받습니다.
 

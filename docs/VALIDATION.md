@@ -66,7 +66,9 @@ Playwright + Chrome headless로 다음을 점검했습니다.
 
 `am start -W -n ai.parkiq.vehicle/.MainActivity` 실행 후 실제 화면과 UIAutomator에서 ParkIQ, 내부 시연, 정차 중, 주차장 6개, 설정 등 UI 표시를 확인했습니다. 이때 백엔드 서버는 실행하지 않았습니다. 따라서 APK 내장 프런트의 Android WebView 로드와 내부 시연 실행은 확인한 상태입니다. 앱 시작 직후에는 권한 창과 렌더링 대기가 있어 에뮬레이터 홈 화면이 잠시 남았습니다.
 
-기본 에뮬레이터 GPS가 시연 지역 밖에 있어 이동 시간이 약 49,000분으로 계산되어, 테스트 위치를 `adb emu geo fix 127.0602 37.5385`로 성수에 맞췄습니다. 화면 캡처는 `artifacts/emulator-current.png`입니다. 네이티브 HTTP 실서버 통신, 실제 내비 경로 요청, Gleo 실제 음성 호출, 실차 검증까지 통과한 것은 아닙니다.
+기본 에뮬레이터 GPS가 시연 지역 밖에 있어 이동 시간이 약 49,000분으로 계산되어, 테스트 위치를 `adb emu geo fix 127.0602 37.5385`로 성수에 맞췄습니다. UIAutomator 기록은 `artifacts/emulator-window.xml`입니다. 현재 IDE에서 변경된 Gradle 9.7.1 / daemon JDK 25 환경에서도 `:app:assembleDebug`를 재실행해 38개 작업 전체 성공을 확인했습니다. 네이티브 HTTP 실서버 통신, 실제 내비 경로 요청, Gleo 실제 음성 호출, 실차 검증까지 통과한 것은 아닙니다.
+
+재빌드 APK의 최종 재설치도 `Success`였습니다. 이후 재실행 대기에서는 `am start -W`가 20초 내 완료되지 않았고, 에뮬레이터 로그에 `Car service has crashed`, `DeadObjectException`, 시스템 Watchdog `WAITED_HALF`가 관측되었습니다. 이는 앞서 내부 화면 표시를 확인한 것과 구분되는 후속 상태입니다. 데이터 삭제 없이 에뮬레이터 재부팅을 요청했습니다. 에뮬레이터 자체의 장시간 안정 실행 검증은 남아 있습니다.
 
 ## 환경과 남은 검증
 

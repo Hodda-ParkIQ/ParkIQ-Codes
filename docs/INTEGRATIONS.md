@@ -75,6 +75,10 @@
 
 `path`는 실제 경로 점들을 순서대로 전달합니다. 주행 leg는 현재 위치→주차장, 도보 leg는 주차장→최종 장소입니다. 유효성 오류/통신 실패/4초 전체 예산 초과 시 거리 추정으로 전환하고 `routing_source=distance_estimate` 경고를 표시합니다. 동시 호출은 최대 8개입니다. 공급자별 traffic 적용 여부는 계약된 어댑터에서 보장해야 합니다. 이 프로젝트만으로 실시간 교통정보를 생성하지 않습니다.
 
+## Valhalla (셀프호스팅 OSM 경로)
+
+`VALHALLA_URL`(예: `http://valhalla:8002`)을 지정하면 백엔드가 Valhalla `/route`를 직접 호출합니다. 주행 leg는 `costing=auto`(현재 위치→주차장), 도보 leg는 `costing=pedestrian`(주차장→최종 장소)이며 두 요청을 병렬로 보냅니다. 응답의 `trip.summary.time`(초)·`length`(km)와 precision 6 polyline `shape`를 그대로 사용합니다. `ROUTING_API_URL`이 함께 설정되어 있으면 계약 공급자를 먼저 시도하고, 실패하면 Valhalla, 그다음 거리 추정 순으로 전환합니다. 전체 예산 4초, 동시 호출 최대 8개는 동일합니다. Valhalla는 실시간 교통을 반영하지 않습니다.
+
 ## 차량 브리지
 
 웹→호스트:

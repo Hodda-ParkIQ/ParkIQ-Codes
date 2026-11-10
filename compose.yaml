@@ -26,11 +26,36 @@ services:
       PRIVATE_API_KEY: ${PRIVATE_API_KEY:-}
       ROUTING_API_URL: ${ROUTING_API_URL:-}
       ROUTING_API_KEY: ${ROUTING_API_KEY:-}
+      VALHALLA_URL: ${VALHALLA_URL:-}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
       SYNC_ENABLED: ${SYNC_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+  # OSM 기반 차량·도보 경로 엔진. `docker compose --profile routing up`으로 함께 실행하고
+  # VALHALLA_URL=http://valhalla:8002 을 지정합니다. 첫 실행 시 한국 OSM 데이터로 타일을 생성합니다.
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:3.9.1
+    profiles: [routing]
+    ports: ["127.0.0.1:8002:8002"]
+    environment:
+      tile_urls: https://download.geofabrik.de/asia/south-korea-latest.osm.pbf
+      use_tiles_ignore_pbf: "True"
+      force_rebuild: "False"
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      server_threads: "2"
+    volumes:
+      - valhalla-data:/custom_files
+    healthcheck:
+      test: [CMD-SHELL, "curl -fsS http://localhost:8002/status || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60m
+    restart: unless-stopped
 volumes:
   parkiq-data:
+  valhalla-data:
