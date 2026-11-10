@@ -1054,7 +1054,9 @@ export default function App() {
             )}
           </section>
           <section className="map-panel" aria-label="선택한 주차장">
-            <div className="map-canvas">
+            <div
+              className={`map-canvas${testOrigin || pickingTestLocation ? " test-location-canvas" : ""}`}
+            >
               <ParkingMap
                 candidates={pageCandidates}
                 ranks={ranks}
@@ -1068,52 +1070,6 @@ export default function App() {
                 pickingTestLocation={pickingTestLocation}
                 onOriginChange={applyTestLocation}
               />
-              {(testOrigin || pickingTestLocation) && !moving && (
-                <div
-                  className="map-test-toolbar"
-                  role="region"
-                  aria-label="지도 테스트 위치 조작"
-                >
-                  <p role="status">
-                    {pickingTestLocation
-                      ? "지도에서 차량을 놓을 지점을 누르세요."
-                      : `테스트 위치 · ${origin.lat.toFixed(5)}, ${origin.lng.toFixed(5)}`}
-                  </p>
-                  <div>
-                    {pickingTestLocation ? (
-                      <button
-                        className="secondary"
-                        onClick={() => setPickingTestLocation(false)}
-                      >
-                        위치 선택 취소
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          className="secondary"
-                          disabled={navigating}
-                          onClick={pickTestLocation}
-                        >
-                          위치 옮기기
-                        </button>
-                        <button
-                          className="primary"
-                          disabled={navigating}
-                          onClick={() => applyTestLocation(origin, true)}
-                        >
-                          이 위치 주변 찾기
-                        </button>
-                        <button
-                          className="secondary"
-                          onClick={() => void useLocation()}
-                        >
-                          GPS 위치로 복귀
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
               <button
                 className="map-location"
                 onClick={() => void useLocation()}
@@ -1124,6 +1080,52 @@ export default function App() {
                 <Navigation size={17} />
               </button>
             </div>
+            {(testOrigin || pickingTestLocation) && !moving && (
+              <div
+                className="map-test-toolbar"
+                role="region"
+                aria-label="지도 테스트 위치 조작"
+              >
+                <p role="status">
+                  {pickingTestLocation
+                    ? "지도에서 차량을 놓을 지점을 누르세요."
+                    : `테스트 위치 · ${origin.lat.toFixed(5)}, ${origin.lng.toFixed(5)}`}
+                </p>
+                <div>
+                  {pickingTestLocation ? (
+                    <button
+                      className="secondary"
+                      onClick={() => setPickingTestLocation(false)}
+                    >
+                      위치 선택 취소
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="secondary"
+                        disabled={navigating}
+                        onClick={pickTestLocation}
+                      >
+                        위치 옮기기
+                      </button>
+                      <button
+                        className="primary"
+                        disabled={navigating}
+                        onClick={() => applyTestLocation(origin, true)}
+                      >
+                        이 위치 주변 찾기
+                      </button>
+                      <button
+                        className="secondary"
+                        onClick={() => void useLocation()}
+                      >
+                        GPS 위치로 복귀
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
             <section
               className={`route-summary ${!selected ? "no-selection" : ""}`}
               aria-label="선택한 주차 경로"

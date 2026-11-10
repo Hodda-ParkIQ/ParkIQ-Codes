@@ -56,6 +56,13 @@ def run():
                 args=["--no-sandbox"],
             )
             page = browser.new_page(viewport={"width": 1280, "height": 720})
+            page.add_init_script("""
+                class TestRecognition {
+                    start(){queueMicrotask(()=>this.onend?.());}
+                    abort(){this.onend?.();}
+                }
+                window.SpeechRecognition=TestRecognition;
+            """)
             errors, requests, checks = [], [], []
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.on("request", lambda req: requests.append(req.url) if "/api/" in req.url else None)

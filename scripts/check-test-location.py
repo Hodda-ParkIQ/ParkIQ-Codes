@@ -107,6 +107,14 @@ def run():
                 "coordinate validation, preset selection and saved test position survive reload"
             )
 
+            page.set_viewport_size({"width": 1280, "height": 720})
+            marker = page.locator(".osm-origin.leaflet-marker-draggable")
+            page.wait_for_function("""()=>{
+                const e=document.querySelector('.osm-origin.leaflet-marker-draggable');
+                if(!e)return false;const r=e.getBoundingClientRect();
+                const target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+                return target===e||e.contains(target);
+            }""")
             panel = settings(page)
             panel.get_by_role("button", name="지도에서 위치 선택", exact=True).click()
             expect(page.locator(".map-test-toolbar")).to_contain_text("지점을 누르세요")

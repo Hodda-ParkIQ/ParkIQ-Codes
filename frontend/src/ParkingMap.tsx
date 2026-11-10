@@ -46,6 +46,7 @@ export default function ParkingMap({
   originChangeRef.current = onOriginChange;
   const pickingRef = useRef(false);
   pickingRef.current = pickingTestLocation && !moving && !navigating;
+  const fitAllRef = useRef<() => void>(() => {});
 
   // 지도 인스턴스는 한 번만 생성
   useEffect(() => {
@@ -68,7 +69,10 @@ export default function ParkingMap({
         originChangeRef.current({ lat: point.lat, lng: point.lng });
       }
     });
-    const observer = new ResizeObserver(() => map.invalidateSize());
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize({ pan: false });
+      fitAllRef.current();
+    });
     observer.observe(element.current);
     return () => {
       observer.disconnect();
@@ -88,14 +92,19 @@ export default function ParkingMap({
       ...candidates.map((c) => toLatLng(c.lot)),
     ]);
     map.fitBounds(bounds, {
-      paddingTopLeft: [90, 140],
+      paddingTopLeft: [
+        90,
+        testLocationActive || pickingTestLocation ? 80 : 140,
+      ],
       paddingBottomRight: [
         90,
-        testLocationActive || pickingTestLocation ? 220 : 100,
+        testLocationActive || pickingTestLocation ? 80 : 100,
       ],
       maxZoom: 17,
+      animate: false,
     });
   };
+  fitAllRef.current = fitAll;
 
   // 후보·목적지·출발지가 바뀌면 화면 맞춤
   const boundsKey = [
@@ -104,6 +113,8 @@ export default function ParkingMap({
     destination.id,
     destination.lat,
     destination.lng,
+    testLocationActive,
+    pickingTestLocation,
     ...candidates.map((c) => c.lot.id),
   ].join("|");
   useEffect(() => {
