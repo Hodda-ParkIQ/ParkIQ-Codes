@@ -1,6 +1,6 @@
 # 검증 기록
 
-검증일: 2026-11-09 (Asia/Seoul)
+최종 확인일: 2026-11-10 (Asia/Seoul)
 
 ## 통과한 검증
 
@@ -59,6 +59,14 @@ Playwright + Chrome headless로 다음을 점검했습니다.
 - Android 1.2.0 컴파일 성공. APK 안의 UI·폰트 파일 6개와 Gleo 스키마가 소스/production build와 바이트 단위로 일치
 
 이번 연결 모드 검증은 Playwright 브라우저 및 모의 네이티브 전송 계약 검증입니다. 연결된 `emulator-5554`에서 1.2.0 설치를 시도했으나 `cmd: Can't find service: package`로 실패했고 재시도도 `Cannot access system provider: settings before system providers are installed` 오류로 실패했습니다. 에뮬레이터 시스템 서비스가 정상화되지 않아 실제 Android WebView의 내부 assets 로드와 네이티브 HTTP 통신 실행은 아직 확인하지 못했습니다. APK 빌드 성공을 실차 실행 성공으로 해석하지 않습니다.
+
+### 2026-11-10 에뮬레이터 실행 확인
+
+연결된 Pleos Connect v2.1.0 `emulator-5554`에서 기존 앱의 `versionName=1.0.0`, `versionCode=1`을 확인했습니다. `adb install -r release/ParkIQ-debug.apk`는 `Success`를 반환했고 설치 후 `versionName=1.2.0`, `versionCode=3`을 확인했습니다.
+
+`am start -W -n ai.parkiq.vehicle/.MainActivity` 실행 후 실제 화면과 UIAutomator에서 ParkIQ, 내부 시연, 정차 중, 주차장 6개, 설정 등 UI 표시를 확인했습니다. 이때 백엔드 서버는 실행하지 않았습니다. 따라서 APK 내장 프런트의 Android WebView 로드와 내부 시연 실행은 확인한 상태입니다. 앱 시작 직후에는 권한 창과 렌더링 대기가 있어 에뮬레이터 홈 화면이 잠시 남았습니다.
+
+기본 에뮬레이터 GPS가 시연 지역 밖에 있어 이동 시간이 약 49,000분으로 계산되어, 테스트 위치를 `adb emu geo fix 127.0602 37.5385`로 성수에 맞췄습니다. 화면 캡처는 `artifacts/emulator-current.png`입니다. 네이티브 HTTP 실서버 통신, 실제 내비 경로 요청, Gleo 실제 음성 호출, 실차 검증까지 통과한 것은 아닙니다.
 
 ## 환경과 남은 검증
 

@@ -148,7 +148,18 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 가상 시설을 차량으로 안내하는 요청은 차단합니다. 실제 차량 경로 요청은 `DATA_MODE=live`로 공급자 데이터를 연결한 후 사용하세요. 내비게이션 성공 표시는 SDK 호출 시점이 아니라 `onRoutingCompleted`/`onWaypointChanged`/`onRouteCancelled` 콜백에 따릅니다. 기획서의 기존 내비 경유지 시나리오는 차량 호스트 화면의 **기존 내비 경로에 경유지로 추가**로 제공합니다. 일반 안내는 주차장을 차량 목적지로 설정하고, 원래 목적지는 도보 도착지로 유지합니다.
 
-**1.2.0 APK 컴파일, 브라우저 전환 검증, 서울시 공개 샘플 호출은 통과했습니다.** 기존 APK를 설치했던 Pleos 에뮬레이터에서는 차량 서비스 오류와 흰 화면이 관측되었고, 이번 1.2.0 설치 시도는 패키지 서비스 및 시스템 `settings` provider 오류로 실패했습니다. 에뮬레이터를 정상 기동한 뒤 새 APK의 내부 화면 로드·네이티브 API 통신·내비 연동을 확인해야 합니다. 실차 실행, Gleo 스키마 심사/승인, 공급자 실계정 전체 수집은 미검증입니다. 웹뷰 기반 UI의 차량 배포 적합성 및 주행 중 사용 가능 범위는 실제 Pleos 앱 심사에서 추가 확인이 필요합니다.
+**2026-11-10 Pleos 에뮬레이터에서 1.2.0 설치와 내장 프런트 실행을 확인했습니다.** 설치돼 있던 앱은 서버에서 UI를 받던 1.0.0이었으며, 1.2.0으로 업데이트한 뒤 백엔드 서버 없이 내부 시연 화면이 표시됩니다. 이전에 관측했던 에뮬레이터 시스템 서비스 오류는 당시의 기록으로 [검증 결과](docs/VALIDATION.md)에 남겼습니다. 실차 실행, 네이티브 HTTP 실서버 통신, Gleo 스키마 심사/승인, 공급자 실계정 전체 수집은 별도 검증이 필요합니다.
+
+이미 빌드된 APK는 실행 중인 에뮬레이터 창으로 `release/ParkIQ-debug.apk`를 끌어 놓거나 아래 명령으로 업데이트합니다.
+
+```bash
+# 프로젝트 루트에서 실행
+"$HOME/Android/Sdk/platform-tools/adb" install -r release/ParkIQ-debug.apk
+"$HOME/Android/Sdk/platform-tools/adb" shell am start -n ai.parkiq.vehicle/.MainActivity
+```
+
+소스 수정 후에는 `android` 폴더에서 `./gradlew :app:installDebug`를 실행하면 웹·APK 빌드와 연결된 기기 설치를 함께 수행합니다. 첫 실행에서 위치·마이크 권한 창이 나올 수 있습니다. 성수 시연 중 이동 시간이 비정상적으로 길면 에뮬레이터 Extended Controls → Location에 위도 `37.5385`, 경도 `127.0602`를 입력하세요.
+
 
 ## 개발 및 검증
 
