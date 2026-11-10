@@ -74,6 +74,7 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
                     if settings.valhalla_url
                     else "distance_estimate"
                 ),
+                "routing_errors": {k: v for k, v in router.last_error.items() if v},
                 "configured_providers": [p.name for p in pipeline.providers],
             },
         )

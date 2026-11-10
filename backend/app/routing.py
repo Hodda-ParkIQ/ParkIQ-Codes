@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import httpx
 from pydantic import BaseModel, Field
@@ -6,6 +7,8 @@ from pydantic import BaseModel, Field
 from .config import Settings
 from .geo import distance_m
 from .models import Point
+
+log = logging.getLogger(__name__)
 
 
 class Leg(BaseModel):
@@ -96,6 +99,15 @@ class Router:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.semaphore = asyncio.Semaphore(8)
+        # Last fallback reason per engine, surfaced via /api/health so a silent
+        # straight-line fallback is diagnosable (e.g. wrong VALHALLA_URL host).
+        self.last_error: dict[str, str | None] = {"provider": None, "valhalla": None}
+
+    def _fail(self, engine: str, exc: BaseException) -> None:
+        reason = f"{type(exc).__name__}: {exc}"[:300]
+        if self.last_error.get(engine) != reason:
+            log.warning("%s routing failed, falling back: %s", engine, reason)
+        self.last_error[engine] = reason
 
     async def route(self, origin: Point, parking: Point, destination: Point) -> RoutePair:
         if self.settings.routing_api_url:
@@ -118,9 +130,10 @@ class Router:
                     response.raise_for_status()
                     pair = RoutePair.model_validate(response.json())
                     pair.source = "routing_provider"
+                    self.last_error["provider"] = None
                     return pair
-            except (httpx.HTTPError, ValueError, TimeoutError):
-                pass
+            except (httpx.HTTPError, ValueError, TimeoutError) as exc:
+                self._fail("provider", exc)
         if self.settings.valhalla_url:
             try:
                 async with (
@@ -134,7 +147,15 @@ class Router:
                             client, self.settings.valhalla_url, parking, destination, "pedestrian"
                         ),
                     )
+                    self.last_error["valhalla"] = None
                     return RoutePair(drive=drive, walk=walk, source="valhalla")
-            except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError, TimeoutError):
-                pass
+            except (
+                httpx.HTTPError,
+                ValueError,
+                KeyError,
+                IndexError,
+                TypeError,
+                TimeoutError,
+            ) as exc:
+                self._fail("valhalla", exc)
         return estimate(origin, parking, destination)
