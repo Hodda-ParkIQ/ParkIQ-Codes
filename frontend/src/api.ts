@@ -168,11 +168,16 @@ export async function checkBackend(
   return data;
 }
 export const api = {
-  async places(signal?: AbortSignal): Promise<{ places: Place[] }> {
+  async places(query = "", signal?: AbortSignal): Promise<{ places: Place[] }> {
     aborted(signal);
     const baseUrl = getBackendUrl();
-    if (!baseUrl) return localPlaces();
-    const data = await remote(baseUrl, "/places", { signal });
+    if (!baseUrl) return localPlaces(query);
+    const q = query.trim();
+    const data = await remote(
+      baseUrl,
+      q ? `/places?q=${encodeURIComponent(q)}` : "/places",
+      { signal },
+    );
     if (
       !object(data) ||
       !Array.isArray(data.places) ||

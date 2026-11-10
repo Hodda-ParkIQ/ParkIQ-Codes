@@ -10,6 +10,7 @@ from .models import ParkingLot, Point
 class Repository(Protocol):
     async def upsert(self, lots: list[ParkingLot]) -> None: ...
     async def nearby(self, point: Point, radius_m: int) -> list[ParkingLot]: ...
+    async def search(self, query: str, limit: int) -> list[ParkingLot]: ...
     async def health(self) -> bool: ...
 
 
@@ -23,6 +24,11 @@ class MemoryRepository:
 
     async def nearby(self, point: Point, radius_m: int) -> list[ParkingLot]:
         return [lot for lot in self.lots.values() if distance_m(point, lot) <= radius_m]
+
+    async def search(self, query: str, limit: int) -> list[ParkingLot]:
+        q = query.lower()
+        hits = [lot for lot in self.lots.values() if q in (lot.name + lot.address).lower()]
+        return sorted(hits, key=lambda lot: (lot.name, lot.id))[:limit]
 
     async def health(self) -> bool:
         return True
@@ -67,6 +73,20 @@ class PostgisRepository:
                 ORDER BY location <-> ST_SetSRID(ST_MakePoint(%s,%s),4326)::geography
             """,
                 (self.demo, point.lng, point.lat, radius_m, point.lng, point.lat),
+            )
+            return [ParkingLot.model_validate(row[0]) for row in await result.fetchall()]
+
+    async def search(self, query: str, limit: int) -> list[ParkingLot]:
+        pattern = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        async with await psycopg.AsyncConnection.connect(self.dsn) as conn:
+            result = await conn.execute(
+                """
+                SELECT payload FROM parking_lots
+                WHERE demo=%s AND (payload->>'name' ILIKE %s OR payload->>'address' ILIKE %s)
+                ORDER BY payload->>'name', id
+                LIMIT %s
+            """,
+                (self.demo, pattern, pattern, limit),
             )
             return [ParkingLot.model_validate(row[0]) for row in await result.fetchall()]
 

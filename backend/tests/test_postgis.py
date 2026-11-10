@@ -29,3 +29,5 @@ async def test_postgis_spatial_query_upsert_and_demo_isolation():
     await repo.upsert([lots[0]])
     updated = await repo.nearby(Point(lat=37.545, lng=127.0527), 10)
     assert updated[0].available == 19
+    assert [lot.id for lot in await repo.search("연무장길", 5)] == ["demo:01"]
+    assert await repo.search("%", 5) == []

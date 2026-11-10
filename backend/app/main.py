@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import Settings
 from .demo import PLACES, demo_lots
-from .models import RecommendationRequest, RecommendationResponse, VoiceIntent, VoiceRequest
+from .models import Place, RecommendationRequest, RecommendationResponse, VoiceIntent, VoiceRequest
 from .pipeline import Pipeline
 from .recommendation import recommend
 from .repository import MemoryRepository, PostgisRepository, Repository
@@ -81,10 +81,26 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
 
     @app.get("/api/places")
     async def places(q: str = Query(default="", max_length=100)):
-        # Curated geocoded destinations. Arbitrary coordinates are accepted by /recommendations.
+        # Curated destinations, plus any stored parking lot whose name/address matches
+        # so drivers can search outside the curated area. Arbitrary coordinates are
+        # accepted by /recommendations.
+        q = q.strip()
+        curated = [p for p in PLACES if q.lower() in (p.name + p.address).lower()]
+        lots = await repo.search(q, 30) if q else []
         return {
-            "places": [p for p in PLACES if q.lower() in (p.name + p.address).lower()],
-            "source": "curated_demo_destinations",
+            "places": curated
+            + [
+                Place(
+                    id=f"lot:{lot.id}",
+                    name=lot.name,
+                    address=lot.address,
+                    lat=lot.lat,
+                    lng=lot.lng,
+                    category="주차장",
+                )
+                for lot in lots
+            ],
+            "source": "curated_and_parking_lots" if q else "curated_demo_destinations",
         }
 
     @app.post("/api/recommendations", response_model=RecommendationResponse)

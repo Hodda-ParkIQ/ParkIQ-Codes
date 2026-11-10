@@ -122,3 +122,10 @@ def test_sync_requires_configured_credentials(client):
 def test_voice_actions(client, text, action, preference):
     data = client.post("/api/voice/interpret", json={"text": text}).json()
     assert data["action"] == action and data["preference"] == preference
+
+
+def test_places_search_includes_parking_lots(client):
+    assert all(p["category"] != "주차장" for p in client.get("/api/places").json()["places"])
+    hits = client.get("/api/places", params={"q": "공영"}).json()["places"]
+    assert hits and all(p["category"] == "주차장" and p["id"].startswith("lot:") for p in hits)
+    assert client.get("/api/places", params={"q": "%_"}).json()["places"] == []

@@ -206,6 +206,23 @@ export function localVoice(text: string): Intent {
     "덜 걷는 곳, 저렴한 곳, 2번 선택, 안내 시작이라고 말해 보세요.",
   );
 }
-export const localPlaces = () => ({
-  places: data.places.map((place) => ({ ...place })),
-});
+export const localPlaces = (query = "") => {
+  const q = query.trim().toLowerCase();
+  const match = (p: Place) => (p.name + p.address).toLowerCase().includes(q);
+  const lotHits: Place[] = q
+    ? lots.filter(match).map((lot) => ({
+        id: `lot:${lot.id}`,
+        name: lot.name,
+        address: lot.address,
+        lat: lot.lat,
+        lng: lot.lng,
+        category: "주차장",
+      }))
+    : [];
+  return {
+    places: [
+      ...data.places.filter(match).map((place) => ({ ...place })),
+      ...lotHits,
+    ],
+  };
+};

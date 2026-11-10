@@ -122,6 +122,8 @@ export default function App() {
     readLocal("parkiq-theme", "light"),
   );
   const [places, setPlaces] = useState<Place[]>([]);
+  const [searchResults, setSearchResults] = useState<Place[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [testOrigin, setTestOrigin] = useState<Point | null>(readTestLocation);
   const testOriginRef = useRef(testOrigin);
   testOriginRef.current = testOrigin;
@@ -226,7 +228,7 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController();
     api
-      .places(controller.signal)
+      .places("", controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) setPlaces(data.places);
       })
@@ -240,6 +242,34 @@ export default function App() {
     return () => controller.abort();
   }, [backendUrl, connectionRevision]);
   useEffect(() => () => connectionCheck.current?.abort(), []);
+  // Destination search: match curated places and every stored parking lot.
+  useEffect(() => {
+    if (!destinationOpen || !query.trim()) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    setSearching(true);
+    const timer = setTimeout(() => {
+      api
+        .places(query, controller.signal)
+        .then((data) => {
+          if (!controller.signal.aborted) setSearchResults(data.places);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setSearchResults([]);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, destinationOpen, backendUrl, connectionRevision]);
+  const shownPlaces = query.trim() ? (searchResults ?? []) : places;
   useEffect(() => {
     try {
       localStorage.setItem("parkiq-favorites", JSON.stringify(favorites));
@@ -1394,24 +1424,34 @@ export default function App() {
             </span>
             <ChevronRight size={24} />
           </button>
-          <p className="modal-label">주변 장소 · 성수 지역 시연</p>
-          {places
-            .filter((p) => (p.name + p.address).includes(query))
-            .map((place) => (
+          <p className="modal-label">
+            {query.trim() ? "검색 결과 · 장소·주차장" : "추천 장소"}
+          </p>
+          {shownPlaces.map((place) => (
               <button
                 className="place-option"
                 key={place.id}
                 onClick={() => chooseDestination(place)}
               >
-                <MapPin size={26} />
+                {place.category === "주차장" ? (
+                  <ParkingSquare size={26} />
+                ) : (
+                  <MapPin size={26} />
+                )}
                 <span>
                   <b>{place.name}</b>
-                  <small>{place.address}</small>
+                  <small>
+                    {place.category === "주차장" ? "주차장 · " : ""}
+                    {place.address}
+                  </small>
                 </span>
                 <ChevronRight size={24} />
               </button>
             ))}
-          {!places.some((p) => (p.name + p.address).includes(query)) && (
+          {searching && shownPlaces.length === 0 && (
+            <p className="empty-text">검색 중…</p>
+          )}
+          {!searching && shownPlaces.length === 0 && (
             <p className="empty-text">검색 결과가 없습니다.</p>
           )}
         </Modal>
