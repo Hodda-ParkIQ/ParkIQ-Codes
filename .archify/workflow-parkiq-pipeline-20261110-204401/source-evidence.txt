@@ -1,0 +1,1039 @@
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:89:         val assetLoader = WebViewAssetLoader.Builder()
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:90:             .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this)).build()
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:91:         web.webViewClient = object : WebViewClient() {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:92:             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:93:                 return !isTrusted(request.url.toString())
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:94:             }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:95:             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:96:                 val uri = request.url
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:97:                 // Map tiles are images only; documents and scripts remain bundled/trusted.
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:98:                 if (uri.scheme == "https" && uri.host == "tile.openstreetmap.org" &&
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:99:                     uri.port in listOf(-1, 443) && request.method == "GET" &&
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:100:                     uri.path?.matches(Regex("/\\d+/\\d+/\\d+\\.png")) == true &&
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:101:                     uri.query == null) return null
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:102:                 if (uri.scheme != "https" || uri.host != "appassets.androidplatform.net") {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:103:                     return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(byteArrayOf()))
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:104:                 }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:105:                 return assetLoader.shouldInterceptRequest(uri)
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:106:                     ?: WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(byteArrayOf()))
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:107:             }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:108:             override fun onPageFinished(view: WebView, url: String) {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:109:                 if (isTrusted(url)) {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:110:                     pageReady = true; publishVehicle()
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:111:                     gleoPending.keys.toList().forEach { deliverGleo(it) }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:112:                 }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:113:             }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:114:         }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:115:         setContentView(web)
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:116:         web.loadUrl("$appOrigin/index.html")
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:117:         requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:118:             Manifest.permission.RECORD_AUDIO, Car.PERMISSION_SPEED), 100)
+frontend/src/App.tsx:190:     const cleanup = subscribeVehicle((state) => {
+frontend/src/App.tsx:191:       setMoving(state.moving);
+frontend/src/App.tsx:192:       if (validLocation(state.origin)) {
+frontend/src/App.tsx:193:         realOrigin.current = state.origin;
+frontend/src/App.tsx:194:         if (!testOriginRef.current) {
+frontend/src/App.tsx:195:           setOrigin(state.origin);
+frontend/src/App.tsx:196:           setLocationLabel("차량 GPS 위치");
+frontend/src/App.tsx:197:         }
+frontend/src/App.tsx:198:       }
+frontend/src/App.tsx:199:     });
+frontend/src/App.tsx:200:     if (window.ParkIQNative)
+frontend/src/App.tsx:201:       void nativeRequest("vehicle.state", {}).catch(() => {});
+frontend/src/App.tsx:202:     const offGleo = subscribeGleo((call) => gleoHandler.current(call));
+frontend/src/App.tsx:203:     return () => {
+frontend/src/App.tsx:204:       clearInterval(tick);
+frontend/src/App.tsx:205:       clearInterval(poll);
+frontend/src/App.tsx:206:       cleanup();
+frontend/src/App.tsx:451:   async function handleVoice(text: string) {
+frontend/src/App.tsx:452:     if (voiceBusy) return;
+frontend/src/App.tsx:453:     setVoiceBusy(true);
+frontend/src/App.tsx:454:     setVoiceText(text);
+frontend/src/App.tsx:455:     const source = getBackendUrl();
+frontend/src/App.tsx:456:     try {
+frontend/src/App.tsx:457:       const intent = await api.voice(text);
+frontend/src/App.tsx:458:       if (getBackendUrl() !== source)
+frontend/src/App.tsx:459:         throw new Error("데이터 연결이 변경되었습니다. 다시 말씀해 주세요.");
+frontend/src/App.tsx:460:       let reply = intent.reply;
+frontend/src/App.tsx:461:       if (intent.action === "preference" && intent.preference) {
+frontend/src/App.tsx:462:         setPreference(intent.preference);
+frontend/src/App.tsx:463:         setTab("explore");
+frontend/src/App.tsx:464:       }
+frontend/src/App.tsx:465:       if (intent.action === "search" && intent.query) {
+frontend/src/App.tsx:466:         const place = places.find((p) => p.name.includes(intent.query!));
+frontend/src/App.tsx:467:         if (place) {
+frontend/src/App.tsx:468:           setNearby(false);
+frontend/src/App.tsx:469:           setDestination(place);
+frontend/src/App.tsx:470:           resetPreview();
+frontend/src/App.tsx:471:           setTab("explore");
+frontend/src/App.tsx:472:         } else reply = "등록된 목적지를 찾지 못했어요.";
+frontend/src/App.tsx:473:       }
+frontend/src/App.tsx:474:       if (intent.action === "select" && intent.rank) {
+frontend/src/App.tsx:475:         const candidate = result?.candidates[intent.rank - 1];
+frontend/src/App.tsx:476:         if (candidate) setSelectedId(candidate.lot.id);
+frontend/src/App.tsx:477:         else reply = "해당 번호의 주차장이 없어요.";
+frontend/src/App.tsx:478:       }
+frontend/src/App.tsx:479:       if (intent.action === "navigate") {
+frontend/src/App.tsx:480:         if (selected) reply = await startRoute();
+frontend/src/App.tsx:481:         else reply = "먼저 주차장을 선택해 주세요.";
+frontend/src/App.tsx:482:       }
+frontend/src/App.tsx:483:       if (intent.action === "cancel") await stopRoute();
+frontend/src/App.tsx:484:       setVoiceReply(reply);
+frontend/src/App.tsx:485:       if (!muted) speak(reply);
+frontend/src/App.tsx:486:     } catch (e) {
+frontend/src/App.tsx:487:       setVoiceReply((e as Error).message);
+frontend/src/App.tsx:488:     } finally {
+frontend/src/App.tsx:489:       setVoiceBusy(false);
+frontend/src/App.tsx:490:     }
+frontend/src/App.tsx:492:   gleoHandler.current = async (call) => {
+frontend/src/App.tsx:493:     const source = getBackendUrl();
+frontend/src/App.tsx:494:     let status = "success",
+frontend/src/App.tsx:495:       message = "The requested parking action was completed.",
+frontend/src/App.tsx:496:       data = "[]";
+frontend/src/App.tsx:497:     try {
+frontend/src/App.tsx:498:       if (call.action === "SEARCH_PARKING") {
+frontend/src/App.tsx:499:         const query = String(call.parameters.query ?? "");
+frontend/src/App.tsx:500:         const place = places.find((p) => p.name.includes(query));
+frontend/src/App.tsx:501:         if (!place || !query) {
+frontend/src/App.tsx:502:           status = "asking";
+frontend/src/App.tsx:503:           message = "A supported destination is required.";
+frontend/src/App.tsx:504:         } else {
+frontend/src/App.tsx:505:           const pref = preferences.some(
+frontend/src/App.tsx:506:             (p) => p.id === call.parameters.preference,
+frontend/src/App.tsx:507:           )
+frontend/src/App.tsx:508:             ? (call.parameters.preference as Preference)
+frontend/src/App.tsx:509:             : preference;
+frontend/src/App.tsx:510:           const response = await api.recommend(
+frontend/src/App.tsx:511:             origin,
+frontend/src/App.tsx:512:             place,
+frontend/src/App.tsx:513:             pref,
+frontend/src/App.tsx:514:             stay,
+frontend/src/App.tsx:515:             evOnly,
+frontend/src/App.tsx:516:           );
+frontend/src/App.tsx:517:           if (getBackendUrl() !== source)
+frontend/src/App.tsx:518:             throw new Error("Connection changed.");
+frontend/src/App.tsx:519:           setNearby(false);
+frontend/src/App.tsx:520:           setDestination(place);
+frontend/src/App.tsx:521:           setPreference(pref);
+frontend/src/App.tsx:522:           setResult(response);
+frontend/src/App.tsx:523:           setSelectedId(response.candidates[0]?.lot.id ?? "");
+frontend/src/App.tsx:524:           setTab("explore");
+frontend/src/App.tsx:525:           data = JSON.stringify(
+frontend/src/App.tsx:526:             response.candidates.slice(0, 3).map((c, i) => ({
+frontend/src/App.tsx:527:               rank: i + 1,
+frontend/src/App.tsx:528:               name: c.lot.name,
+frontend/src/App.tsx:529:               walk_meters: c.walk_meters,
+frontend/src/App.tsx:530:               total_minutes: c.total_minutes,
+frontend/src/App.tsx:531:               demo: c.lot.demo,
+frontend/src/App.tsx:532:             })),
+frontend/src/App.tsx:533:           );
+frontend/src/App.tsx:534:         }
+frontend/src/App.tsx:535:       } else if (call.action === "START_PARKING_ROUTE") {
+frontend/src/App.tsx:536:         if (hasNative && testOriginRef.current)
+frontend/src/App.tsx:537:           throw new Error("Test location is active.");
+frontend/src/App.tsx:538:         const rank = Number(call.parameters.rank);
+frontend/src/App.tsx:539:         const candidate = result?.candidates[rank - 1];
+frontend/src/App.tsx:540:         if (!Number.isInteger(rank) || !candidate) {
+frontend/src/App.tsx:541:           status = "asking";
+frontend/src/App.tsx:542:           message = "A valid parking rank is required.";
+frontend/src/App.tsx:543:         } else {
+frontend/src/App.tsx:544:           const latest = await api.recommend(
+frontend/src/App.tsx:545:             origin,
+frontend/src/App.tsx:546:             destination,
+frontend/src/App.tsx:547:             preference,
+frontend/src/App.tsx:548:             stay,
+frontend/src/App.tsx:549:             evOnly,
+frontend/src/App.tsx:550:           );
+frontend/src/App.tsx:551:           const checked = latest.candidates.find(
+frontend/src/App.tsx:552:             (c) => c.lot.id === candidate.lot.id,
+frontend/src/App.tsx:553:           );
+frontend/src/App.tsx:554:           if (getBackendUrl() !== source)
+frontend/src/App.tsx:555:             throw new Error("Connection changed.");
+frontend/src/App.tsx:556:           if (!checked) throw new Error("Parking availability changed.");
+frontend/src/App.tsx:557:           await navigate(
+frontend/src/App.tsx:558:             checked,
+frontend/src/App.tsx:559:             destination,
+frontend/src/App.tsx:560:             false,
+frontend/src/App.tsx:561:             testOriginRef.current !== null,
+frontend/src/App.tsx:562:           );
+frontend/src/App.tsx:563:           setActiveRouteId(checked.lot.id);
+frontend/src/App.tsx:564:           setSelectedId(checked.lot.id);
+frontend/src/App.tsx:565:           setNavigating(true);
+frontend/src/App.tsx:566:           message =
+frontend/src/backend-config.ts:28: export function getBackendUrl(): string {
+frontend/src/backend-config.ts:29:   try {
+frontend/src/backend-config.ts:30:     const saved = localStorage.getItem(KEY);
+frontend/src/backend-config.ts:31:     if (saved !== null) return saved.trim();
+frontend/src/backend-config.ts:32:   } catch {
+frontend/src/backend-config.ts:33:     /* Storage may be unavailable; use the packaged default. */
+frontend/src/backend-config.ts:34:   }
+frontend/src/backend-config.ts:35:   const env = (import.meta as ImportMeta & { env?: Record<string, string> })
+frontend/src/backend-config.ts:36:     .env;
+frontend/src/backend-config.ts:37:   const configured =
+frontend/src/backend-config.ts:38:     window.ParkIQNative?.getDefaultBackendUrl?.() ??
+frontend/src/backend-config.ts:39:     env?.VITE_API_BASE_URL ??
+frontend/src/backend-config.ts:40:     "";
+frontend/src/backend-config.ts:41:   // Invalid non-empty configuration remains a server-mode error; it never selects demo silently.
+frontend/src/backend-config.ts:42:   return configured.trim();
+frontend/src/backend-config.ts:43: }
+frontend/src/api.ts:196:   async recommend(
+frontend/src/api.ts:197:     origin: Point,
+frontend/src/api.ts:198:     destination: Place,
+frontend/src/api.ts:199:     preference: Preference,
+frontend/src/api.ts:200:     stay_minutes: number,
+frontend/src/api.ts:201:     ev_only: boolean,
+frontend/src/api.ts:202:     signal?: AbortSignal,
+frontend/src/api.ts:203:   ): Promise<Result> {
+frontend/src/api.ts:204:     aborted(signal);
+frontend/src/api.ts:205:     const baseUrl = getBackendUrl();
+frontend/src/api.ts:206:     if (!baseUrl)
+frontend/src/api.ts:207:       return localRecommendations(
+frontend/src/api.ts:208:         origin,
+frontend/src/api.ts:209:         destination,
+frontend/src/api.ts:210:         preference,
+frontend/src/api.ts:211:         stay_minutes,
+frontend/src/api.ts:212:         ev_only,
+frontend/src/api.ts:213:       );
+frontend/src/api.ts:214:     const data = await remote(baseUrl, "/recommendations", {
+frontend/src/api.ts:215:       method: "POST",
+frontend/src/api.ts:216:       signal,
+frontend/src/api.ts:217:       body: JSON.stringify({
+frontend/src/api.ts:218:         origin,
+frontend/src/api.ts:219:         destination,
+frontend/src/api.ts:220:         preference,
+frontend/src/api.ts:221:         stay_minutes,
+frontend/src/api.ts:222:         ev_only,
+frontend/src/api.ts:223:       }),
+frontend/src/api.ts:224:     });
+frontend/src/api.ts:225:     if (!validResult(data))
+frontend/src/api.ts:226:       throw new Error("서버의 주차 추천 응답 형식이 올바르지 않습니다.");
+frontend/src/api.ts:227:     return data;
+frontend/src/api.ts:228:   },
+frontend/src/api.ts:229:   async voice(text: string): Promise<Intent> {
+frontend/src/local-api.ts:50: export function localRecommendations(
+frontend/src/local-api.ts:51:   origin: Point,
+frontend/src/local-api.ts:52:   destination: Place,
+frontend/src/local-api.ts:53:   preference: Preference,
+frontend/src/local-api.ts:54:   stay: number,
+frontend/src/local-api.ts:55:   evOnly: boolean,
+frontend/src/local-api.ts:56: ): Result {
+frontend/src/local-api.ts:57:   const nearby = lots.filter((lot) => distance(destination, lot) <= 2000);
+frontend/src/local-api.ts:58:   const candidates: Candidate[] = nearby
+frontend/src/local-api.ts:59:     .filter(
+frontend/src/local-api.ts:60:       (lot) =>
+frontend/src/local-api.ts:61:         lot.available !== 0 &&
+frontend/src/local-api.ts:62:         lot.is_open !== false &&
+frontend/src/local-api.ts:63:         (!evOnly || lot.ev === true),
+frontend/src/local-api.ts:64:     )
+frontend/src/local-api.ts:65:     .map((lot) => {
+frontend/src/local-api.ts:66:       const driveMeters = round(distance(origin, lot) * 1.35),
+frontend/src/local-api.ts:67:         walkMeters = round(distance(lot, destination) * 1.2);
+frontend/src/local-api.ts:68:       const drive = round(Math.max(1, driveMeters / 250 + 1.5), 1),
+frontend/src/local-api.ts:69:         walk = round(Math.max(0.5, walkMeters / 75), 1);
+frontend/src/local-api.ts:70:       const age = lot.observed_at
+frontend/src/local-api.ts:71:         ? (Date.now() - Date.parse(lot.observed_at)) / 1000
+frontend/src/local-api.ts:72:         : Infinity;
+frontend/src/local-api.ts:73:       const stale = age > 600 || age < -60,
+frontend/src/local-api.ts:74:         unknown = stale || lot.available === null;
+frontend/src/local-api.ts:75:       const occupancy = unknown
+frontend/src/local-api.ts:76:         ? 0.75
+frontend/src/local-api.ts:77:         : 1 - Math.min(lot.available!, lot.capacity) / lot.capacity;
+frontend/src/local-api.ts:78:       const risk = unknown
+frontend/src/local-api.ts:79:         ? "unknown"
+frontend/src/local-api.ts:80:         : occupancy >= 0.9
+frontend/src/local-api.ts:81:           ? "high"
+frontend/src/local-api.ts:82:           : occupancy >= 0.7
+frontend/src/local-api.ts:83:             ? "medium"
+frontend/src/local-api.ts:84:             : "low";
+frontend/src/local-api.ts:85:       const search = round(unknown ? 5 : 0.8 + 5 * occupancy ** 3, 1),
+frontend/src/local-api.ts:86:         cost = fee(lot, stay);
+frontend/src/local-api.ts:87:       const [walkingWeight, feeWeight] = {
+frontend/src/local-api.ts:88:         balanced: [1.25, 0.15],
+frontend/src/local-api.ts:89:         less_walking: [3.5, 0.1],
+frontend/src/local-api.ts:90:         fastest: [1, 0],
+frontend/src/local-api.ts:91:         cheapest: [1, 4],
+frontend/src/local-api.ts:92:       }[preference];
+frontend/src/local-api.ts:93:       const score =
+frontend/src/local-api.ts:94:         drive +
+frontend/src/local-api.ts:95:         search +
+frontend/src/local-api.ts:96:         walk * walkingWeight +
+frontend/src/local-api.ts:97:         (cost === null ? 8 : cost / 1000) * feeWeight +
+frontend/src/local-api.ts:98:         (unknown ? 3 : risk === "high" ? 2 : 0);
+frontend/src/local-api.ts:99:       return {
+frontend/src/local-api.ts:100:         lot: { ...lot },
+frontend/src/local-api.ts:101:         drive_minutes: drive,
+frontend/src/local-api.ts:102:         walk_minutes: walk,
+frontend/src/local-api.ts:103:         walk_meters: walkMeters,
+frontend/src/local-api.ts:104:         search_minutes: search,
+frontend/src/local-api.ts:105:         total_minutes: round(drive + walk + search, 1),
+frontend/src/local-api.ts:106:         estimated_fee: cost,
+frontend/src/local-api.ts:107:         risk,
+frontend/src/local-api.ts:108:         stale,
+frontend/src/local-api.ts:109:         score: round(score, 3),
+frontend/src/local-api.ts:110:         reasons: [
+frontend/src/local-api.ts:111:           `목적지까지 도보 ${walkMeters}m`,
+frontend/src/local-api.ts:112:           unknown ? "잔여 정보 확인 필요" : `현재 ${lot.available}면 여유`,
+frontend/src/local-api.ts:113:         ],
+frontend/src/local-api.ts:114:         routing_source: "distance_estimate",
+frontend/src/local-api.ts:115:         drive_path: [
+frontend/src/local-api.ts:116:           point(origin),
+frontend/src/local-api.ts:117:           { lat: origin.lat, lng: lot.lng },
+frontend/src/local-api.ts:118:           point(lot),
+frontend/src/local-api.ts:119:         ],
+frontend/src/local-api.ts:120:         walk_path: [
+frontend/src/local-api.ts:121:           point(lot),
+frontend/src/local-api.ts:122:           { lat: lot.lat, lng: destination.lng },
+frontend/src/local-api.ts:123:           point(destination),
+frontend/src/local-api.ts:124:         ],
+frontend/src/local-api.ts:125:       };
+frontend/src/local-api.ts:126:     });
+frontend/src/local-api.ts:127:   candidates.sort(
+frontend/src/local-api.ts:128:     (a, b) => a.score - b.score || a.lot.id.localeCompare(b.lot.id),
+frontend/src/local-api.ts:129:   );
+frontend/src/local-api.ts:130:   const warnings = [
+frontend/src/local-api.ts:131:     "앱 내부의 가상 시연 데이터입니다.",
+frontend/src/local-api.ts:132:     "이동 시간과 경로는 거리 기반 추정입니다.",
+frontend/src/local-api.ts:133:   ];
+frontend/src/local-api.ts:134:   if (!candidates.length) warnings.push("조건에 맞는 주차장이 없습니다.");
+frontend/src/local-api.ts:135:   return {
+frontend/src/local-api.ts:136:     mode: "demo",
+frontend/src/local-api.ts:137:     generated_at: new Date().toISOString(),
+frontend/src/local-api.ts:138:     destination,
+frontend/src/local-api.ts:139:     preference,
+frontend/src/local-api.ts:140:     candidates: candidates.slice(0, 6),
+frontend/src/local-api.ts:141:     excluded_full: nearby.filter((lot) => lot.available === 0).length,
+frontend/src/local-api.ts:142:     warnings,
+frontend/src/local-api.ts:143:   };
+frontend/src/local-api.ts:144: }
+frontend/src/local-api.ts:145: 
+frontend/src/local-api.ts:146: export function localVoice(text: string): Intent {
+frontend/src/local-api.ts:147:   const value = text.replace(/\s+/g, "");
+frontend/src/local-api.ts:148:   const make = (
+frontend/src/local-api.ts:149:     action: Intent["action"],
+frontend/src/api.ts:196:   async recommend(
+frontend/src/api.ts:197:     origin: Point,
+frontend/src/api.ts:198:     destination: Place,
+frontend/src/api.ts:199:     preference: Preference,
+frontend/src/api.ts:200:     stay_minutes: number,
+frontend/src/api.ts:201:     ev_only: boolean,
+frontend/src/api.ts:202:     signal?: AbortSignal,
+frontend/src/api.ts:203:   ): Promise<Result> {
+frontend/src/api.ts:204:     aborted(signal);
+frontend/src/api.ts:205:     const baseUrl = getBackendUrl();
+frontend/src/api.ts:206:     if (!baseUrl)
+frontend/src/api.ts:207:       return localRecommendations(
+frontend/src/api.ts:208:         origin,
+frontend/src/api.ts:209:         destination,
+frontend/src/api.ts:210:         preference,
+frontend/src/api.ts:211:         stay_minutes,
+frontend/src/api.ts:212:         ev_only,
+frontend/src/api.ts:213:       );
+frontend/src/api.ts:214:     const data = await remote(baseUrl, "/recommendations", {
+frontend/src/App.tsx:1000:                   className={`parking-list ${loading ? "is-loading" : ""}`}
+frontend/src/App.tsx:1001:                   aria-busy={loading}
+frontend/src/App.tsx:1002:                 >
+frontend/src/App.tsx:1003:                   {error ? (
+frontend/src/App.tsx:1004:                     <div className="empty error">
+frontend/src/App.tsx:1005:                       <WifiOff size={36} />
+frontend/src/App.tsx:1006:                       <h3>주차 정보를 불러올 수 없습니다</h3>
+frontend/src/App.tsx:1007:                       <p>{error}</p>
+frontend/src/App.tsx:1008:                       <button
+frontend/src/App.tsx:1009:                         className="secondary"
+frontend/src/App.tsx:1010:                         onClick={() => setRefresh((x) => x + 1)}
+frontend/src/App.tsx:1011:                       >
+frontend/src/App.tsx:1012:                         다시 시도
+frontend/src/App.tsx:1013:                       </button>
+frontend/src/App.tsx:1014:                     </div>
+frontend/src/App.tsx:1015:                   ) : loading && !result ? (
+frontend/src/App.tsx:1016:                     <div className="empty loading-state" role="status">
+frontend/src/App.tsx:1017:                       <ParkingSquare size={42} />
+frontend/src/App.tsx:1018:                       <h3>주차장을 찾고 있습니다</h3>
+frontend/src/App.tsx:1019:                     </div>
+frontend/src/App.tsx:1020:                   ) : !loading && !visible.length ? (
+frontend/src/App.tsx:1021:                     <div className="empty">
+frontend/src/App.tsx:1022:                       <ParkingSquare size={40} />
+frontend/src/App.tsx:1023:                       <h3>
+frontend/src/App.tsx:1024:                         {tab === "saved"
+frontend/src/App.tsx:1025:                           ? "저장한 주차장이 없습니다"
+frontend/src/App.tsx:1026:                           : "조회된 주차장이 없습니다"}
+frontend/src/App.tsx:1027:                       </h3>
+frontend/src/App.tsx:1028:                       <p>
+frontend/src/App.tsx:1029:                         {tab === "saved"
+frontend/src/App.tsx:1030:                           ? "목록에서 하트를 눌러 저장하세요."
+frontend/src/App.tsx:1031:                           : result?.mode === "live"
+frontend/src/App.tsx:1032:                             ? "연결된 데이터에서 목적지 반경 2km의 주차장을 찾지 못했습니다. 목적지나 충전 조건을 변경하세요."
+frontend/src/App.tsx:1033:                             : "목적지 또는 충전 조건을 확인하세요."}
+frontend/src/App.tsx:1034:                       </p>
+frontend/src/App.tsx:1035:                       <button
+frontend/src/App.tsx:1036:                         className="secondary"
+frontend/src/App.tsx:1037:                         onClick={() => {
+frontend/src/App.tsx:1038:                           if (tab === "saved" || evOnly) {
+frontend/src/App.tsx:1039:                             setEvOnly(false);
+frontend/src/App.tsx:1040:                             setTab("explore");
+frontend/src/App.tsx:1041:                           } else if (moving) {
+frontend/src/App.tsx:1042:                             setVoiceOpen(true);
+frontend/src/App.tsx:1043:                           } else {
+frontend/src/App.tsx:1044:                             setDestinationOpen(true);
+frontend/src/App.tsx:1045:                           }
+frontend/src/App.tsx:1046:                         }}
+frontend/src/App.tsx:1047:                       >
+frontend/src/App.tsx:1048:                         {tab === "saved"
+frontend/src/App.tsx:1049:                           ? "주변 주차장 보기"
+frontend/src/App.tsx:1050:                           : evOnly
+frontend/src/App.tsx:1051:                             ? "충전 조건 해제"
+frontend/src/App.tsx:1052:                             : moving
+frontend/src/App.tsx:1053:                               ? "음성으로 다시 찾기"
+frontend/src/App.tsx:1054:                               : "목적지 변경"}
+frontend/src/App.tsx:1055:                       </button>
+frontend/src/App.tsx:1056:                     </div>
+frontend/src/App.tsx:1057:                   ) : (
+frontend/src/App.tsx:1058:                     pageCandidates.map((c) => (
+frontend/src/App.tsx:1059:                       <ParkingCard
+frontend/src/App.tsx:1060:                         key={c.lot.id}
+frontend/src/App.tsx:1061:                         candidate={c}
+frontend/src/App.tsx:1062:                         rank={ranks[c.lot.id]}
+frontend/src/App.tsx:1063:                         active={selectedId === c.lot.id}
+frontend/src/App.tsx:1064:                         favorite={favorites.includes(c.lot.id)}
+frontend/src/App.tsx:1065:                         moving={moving}
+frontend/src/App.tsx:1066:                         onSelect={() => selectCandidate(c.lot.id)}
+frontend/src/App.tsx:1067:                         onFavorite={() => toggleFavorite(c.lot.id)}
+frontend/src/App.tsx:1068:                       />
+frontend/src/App.tsx:1069:                     ))
+frontend/src/App.tsx:1070:                   )}
+frontend/src/App.tsx:1071:                 </div>
+frontend/src/App.tsx:1072:                 <div
+frontend/src/App.tsx:1073:                   className="list-pagination"
+frontend/src/App.tsx:1074:                   aria-label="주차장 목록 페이지"
+frontend/src/App.tsx:1075:                 >
+frontend/src/App.tsx:1076:                   <button
+frontend/src/App.tsx:1077:                     aria-label="이전 주차장"
+frontend/src/App.tsx:1078:                     disabled={currentPage === 0 || loading}
+frontend/src/App.tsx:1079:                     onClick={() => changePage(Math.max(0, currentPage - 1))}
+frontend/src/App.tsx:1080:                   >
+frontend/src/App.tsx:1081:                     <ChevronLeft size={25} />
+frontend/src/App.tsx:1082:                     <span>이전</span>
+frontend/src/App.tsx:1083:                   </button>
+frontend/src/App.tsx:1084:                   <span>
+frontend/src/App.tsx:1085:                     {currentPage + 1} / {pageCount}
+frontend/src/App.tsx:1086:                   </span>
+frontend/src/App.tsx:1087:                   <button
+frontend/src/App.tsx:1088:                     aria-label="다음 주차장"
+frontend/src/ParkingMap.tsx:140:   // 경로·마커 다시 그리기
+frontend/src/ParkingMap.tsx:141:   useEffect(() => {
+frontend/src/ParkingMap.tsx:142:     const group = overlayRef.current;
+frontend/src/ParkingMap.tsx:143:     if (!group) return;
+frontend/src/ParkingMap.tsx:144:     group.clearLayers();
+frontend/src/ParkingMap.tsx:145: 
+frontend/src/ParkingMap.tsx:146:     if (selected) {
+frontend/src/ParkingMap.tsx:147:       const drive = selected.drive_path.map(toLatLng);
+frontend/src/ParkingMap.tsx:148:       const walk = selected.walk_path.map(toLatLng);
+frontend/src/ParkingMap.tsx:149:       const state = navigating ? " active" : "";
+frontend/src/ParkingMap.tsx:150:       L.polyline(drive, {
+frontend/src/ParkingMap.tsx:151:         weight: 12,
+frontend/src/ParkingMap.tsx:152:         lineJoin: "round",
+frontend/src/ParkingMap.tsx:153:         interactive: false,
+frontend/src/ParkingMap.tsx:154:         className: `osm-drive-casing${state}`,
+frontend/src/ParkingMap.tsx:155:       }).addTo(group);
+frontend/src/ParkingMap.tsx:156:       L.polyline(drive, {
+frontend/src/ParkingMap.tsx:157:         weight: 7,
+frontend/src/ParkingMap.tsx:158:         lineJoin: "round",
+frontend/src/ParkingMap.tsx:159:         interactive: false,
+frontend/src/ParkingMap.tsx:160:         className: `osm-drive${state}`,
+frontend/src/ParkingMap.tsx:161:       }).addTo(group);
+frontend/src/ParkingMap.tsx:162:       L.polyline(walk, {
+frontend/src/ParkingMap.tsx:163:         className: "osm-walk",
+frontend/src/ParkingMap.tsx:164:         weight: 5,
+frontend/src/ParkingMap.tsx:165:         dashArray: "3 9",
+frontend/src/ParkingMap.tsx:166:         lineCap: "round",
+frontend/src/ParkingMap.tsx:167:         interactive: false,
+frontend/src/ParkingMap.tsx:168:       }).addTo(group);
+frontend/src/ParkingMap.tsx:169:     }
+frontend/src/ParkingMap.tsx:170: 
+frontend/src/ParkingMap.tsx:171:     L.marker(toLatLng(destination), {
+frontend/src/ParkingMap.tsx:172:       icon: L.divIcon({
+frontend/src/ParkingMap.tsx:173:         className: "osm-destination",
+frontend/src/ParkingMap.tsx:174:         html: '<span class="osm-destination-dot"></span><span class="osm-destination-label">목적지</span>',
+frontend/src/ParkingMap.tsx:175:         iconSize: [18, 18],
+frontend/src/ParkingMap.tsx:176:         iconAnchor: [9, 9],
+frontend/src/ParkingMap.tsx:177:       }),
+frontend/src/ParkingMap.tsx:178:       keyboard: false,
+frontend/src/ParkingMap.tsx:179:       interactive: false,
+frontend/src/ParkingMap.tsx:180:       zIndexOffset: 500,
+frontend/src/ParkingMap.tsx:181:     }).addTo(group);
+frontend/src/ParkingMap.tsx:182: 
+frontend/src/ParkingMap.tsx:183:     for (const candidate of candidates) {
+frontend/src/ParkingMap.tsx:184:       const active = selected?.lot.id === candidate.lot.id;
+frontend/src/ParkingMap.tsx:185:       const rank = ranks[candidate.lot.id];
+frontend/src/ParkingMap.tsx:186:       const marker = L.marker(toLatLng(candidate.lot), {
+frontend/src/ParkingMap.tsx:187:         icon: L.divIcon({
+frontend/src/ParkingMap.tsx:188:           className: `osm-pin ${active ? "active" : ""}`,
+frontend/src/ParkingMap.tsx:189:           html: `<span class="osm-pin-box">P<small>${rank ?? ""}</small></span>${active ? '<span class="osm-pin-tail"></span>' : ""}`,
+frontend/src/ParkingMap.tsx:190:           iconSize: [56, 64],
+frontend/src/ParkingMap.tsx:191:           iconAnchor: [28, 64],
+frontend/src/ParkingMap.tsx:192:         }),
+frontend/src/ParkingMap.tsx:193:         title: `${rank}번 ${candidate.lot.name} 선택`,
+frontend/src/ParkingMap.tsx:194:         alt: `${rank}번 ${candidate.lot.name}`,
+frontend/src/ParkingMap.tsx:195:         riseOnHover: true,
+frontend/src/ParkingMap.tsx:196:         zIndexOffset: active ? 1000 : 0,
+frontend/src/App.tsx:390:   async function startRoute(candidate = selected, asWaypoint = false) {
+frontend/src/App.tsx:391:     if (hasNative && testOriginRef.current) {
+frontend/src/App.tsx:392:       const message =
+frontend/src/App.tsx:393:         "테스트 위치에서는 실제 차량 안내를 시작할 수 없습니다. GPS 위치로 복귀해 주세요.";
+frontend/src/App.tsx:394:       setToast(message);
+frontend/src/App.tsx:395:       return message;
+frontend/src/App.tsx:396:     }
+frontend/src/App.tsx:397:     if (!candidate || starting || loading)
+frontend/src/App.tsx:398:       return "경로를 확인하고 있어요. 잠시 후 다시 시도해 주세요.";
+frontend/src/App.tsx:399:     setStarting(true);
+frontend/src/App.tsx:400:     const source = getBackendUrl();
+frontend/src/App.tsx:401:     try {
+frontend/src/App.tsx:402:       // Recheck occupancy immediately before handing a route to the vehicle.
+frontend/src/App.tsx:403:       const latest = await api.recommend(
+frontend/src/App.tsx:404:         origin,
+frontend/src/App.tsx:405:         destination,
+frontend/src/App.tsx:406:         preference,
+frontend/src/App.tsx:407:         stay,
+frontend/src/App.tsx:408:         evOnly,
+frontend/src/App.tsx:409:       );
+frontend/src/App.tsx:410:       const checked = latest.candidates.find(
+frontend/src/App.tsx:411:         (c) => c.lot.id === candidate.lot.id,
+frontend/src/App.tsx:412:       );
+frontend/src/App.tsx:413:       if (getBackendUrl() !== source)
+frontend/src/App.tsx:414:         throw new Error(
+frontend/src/App.tsx:415:           "데이터 연결이 변경되었습니다. 주차장을 다시 선택하세요.",
+frontend/src/App.tsx:416:         );
+frontend/src/App.tsx:417:       setResult(latest);
+frontend/src/App.tsx:418:       if (!checked)
+frontend/src/App.tsx:419:         throw new Error(
+frontend/src/App.tsx:420:           "주차장 상태가 변경되었습니다. 다른 주차장을 선택해 주세요.",
+frontend/src/App.tsx:421:         );
+frontend/src/App.tsx:422:       const message = await navigate(
+frontend/src/App.tsx:423:         checked,
+frontend/src/App.tsx:424:         destination,
+frontend/src/App.tsx:425:         asWaypoint,
+frontend/src/App.tsx:426:         testOriginRef.current !== null,
+frontend/src/App.tsx:427:       );
+frontend/src/App.tsx:428:       setSelectedId(checked.lot.id);
+frontend/src/App.tsx:429:       setNavigating(true);
+frontend/src/App.tsx:430:       setActiveRouteId(checked.lot.id);
+frontend/src/App.tsx:431:       notify(message);
+frontend/src/App.tsx:432:       setHistory((old) =>
+frontend/src/App.tsx:433:         [
+frontend/src/App.tsx:434:           {
+frontend/src/App.tsx:435:             id: checked.lot.id,
+frontend/src/App.tsx:436:             name: checked.lot.name,
+frontend/src/App.tsx:437:             destination: destination.name,
+frontend/src/App.tsx:438:             at: new Date().toISOString(),
+frontend/src/App.tsx:439:           },
+frontend/src/App.tsx:440:           ...old,
+frontend/src/App.tsx:441:         ].slice(0, 12),
+frontend/src/App.tsx:442:       );
+frontend/src/App.tsx:443:       return message;
+frontend/src/App.tsx:444:     } catch (e) {
+frontend/src/App.tsx:445:       setToast((e as Error).message);
+frontend/src/App.tsx:446:       return (e as Error).message;
+frontend/src/App.tsx:447:     } finally {
+frontend/src/App.tsx:448:       setStarting(false);
+frontend/src/App.tsx:449:     }
+frontend/src/App.tsx:450:   }
+frontend/src/App.tsx:451:   async function handleVoice(text: string) {
+frontend/src/App.tsx:452:     if (voiceBusy) return;
+frontend/src/App.tsx:453:     setVoiceBusy(true);
+frontend/src/vehicle.ts:64:   if (window.ParkIQNative) {
+frontend/src/vehicle.ts:65:     if (testLocation)
+frontend/src/vehicle.ts:66:       throw new Error(
+frontend/src/vehicle.ts:67:         "테스트 위치에서는 실제 차량 안내를 시작할 수 없습니다. GPS 위치로 복귀해 주세요.",
+frontend/src/vehicle.ts:68:       );
+frontend/src/vehicle.ts:69:     if (candidate.lot.demo)
+frontend/src/vehicle.ts:70:       throw new Error(
+frontend/src/vehicle.ts:71:         "시연 주차장을 실제 차량으로 안내할 수 없습니다. 실데이터 모드를 연결해 주세요.",
+frontend/src/vehicle.ts:72:       );
+frontend/src/vehicle.ts:73:     await nativeRequest(
+frontend/src/vehicle.ts:74:       asWaypoint ? "navigation.addWaypoint" : "navigation.start",
+frontend/src/vehicle.ts:75:       {
+frontend/src/vehicle.ts:76:         parking: candidate.lot,
+frontend/src/vehicle.ts:77:         destination,
+frontend/src/vehicle.ts:78:       },
+frontend/src/vehicle.ts:79:     );
+frontend/src/vehicle.ts:80:     return asWaypoint
+frontend/src/vehicle.ts:81:       ? "차량 내비게이션에 주차장 경유지를 추가했어요."
+frontend/src/vehicle.ts:82:       : "차량 내비게이션에서 경로 요청을 수락했습니다.";
+frontend/src/vehicle.ts:83:   }
+frontend/src/vehicle.ts:84:   return "시연 경로를 시작했어요. 실제 차량에는 전송되지 않습니다.";
+frontend/src/api.ts:128:     let data: unknown;
+frontend/src/api.ts:129:     try {
+frontend/src/api.ts:130:       data = JSON.parse(body);
+frontend/src/api.ts:131:     } catch {
+frontend/src/api.ts:132:       throw new Error("서버가 올바른 JSON API 응답을 반환하지 않았습니다.");
+frontend/src/api.ts:133:     }
+frontend/src/api.ts:134:     if (status < 200 || status >= 300)
+frontend/src/api.ts:135:       throw new Error(
+frontend/src/api.ts:136:         object(data) && typeof data.detail === "string"
+frontend/src/api.ts:137:           ? data.detail
+frontend/src/api.ts:138:           : `서버 요청에 실패했습니다. (${status})`,
+frontend/src/api.ts:139:       );
+frontend/src/api.ts:140:     return data;
+frontend/src/api.ts:141:   } catch (error) {
+frontend/src/api.ts:142:     if (timedOut)
+frontend/src/api.ts:143:       throw new Error(
+frontend/src/api.ts:144:         "서버 연결 시간이 초과되었습니다. 서버 주소와 연결 상태를 확인하세요.",
+frontend/src/api.ts:145:       );
+frontend/src/api.ts:146:     if (controller.signal.aborted)
+frontend/src/api.ts:147:       throw new DOMException("요청을 취소했습니다.", "AbortError");
+frontend/src/api.ts:148:     if (error instanceof TypeError)
+frontend/src/api.ts:149:       throw new Error(
+frontend/src/api.ts:150:         "서버에 연결할 수 없습니다. 서버 주소·네트워크·CORS 설정을 확인하세요.",
+frontend/src/api.ts:151:       );
+frontend/src/api.ts:152:     throw error;
+frontend/src/api.ts:153:   } finally {
+frontend/src/api.ts:154:     clearTimeout(timer);
+frontend/src/api.ts:155:     init.signal?.removeEventListener("abort", abort);
+frontend/src/api.ts:156:   }
+frontend/src/api.ts:157: }
+frontend/src/api.ts:158: 
+frontend/src/api.ts:159: export async function checkBackend(
+frontend/src/api.ts:160:   value: string,
+frontend/src/api.ts:161:   signal?: AbortSignal,
+frontend/src/api.ts:162: ): Promise<Health> {
+frontend/src/api.ts:163:   const baseUrl = normalizeBackendUrl(value);
+frontend/src/api.ts:164:   if (!baseUrl) throw new Error("연결할 서버 주소를 입력하세요.");
+frontend/src/api.ts:165:   const data = await remote(baseUrl, "/health", { signal });
+frontend/src/App.tsx:1006:                       <h3>주차 정보를 불러올 수 없습니다</h3>
+frontend/src/App.tsx:1007:                       <p>{error}</p>
+frontend/src/App.tsx:1008:                       <button
+frontend/src/App.tsx:1009:                         className="secondary"
+frontend/src/App.tsx:1010:                         onClick={() => setRefresh((x) => x + 1)}
+frontend/src/App.tsx:1011:                       >
+frontend/src/App.tsx:1012:                         다시 시도
+frontend/src/App.tsx:1013:                       </button>
+frontend/src/App.tsx:1014:                     </div>
+frontend/src/App.tsx:1015:                   ) : loading && !result ? (
+frontend/src/App.tsx:1016:                     <div className="empty loading-state" role="status">
+frontend/src/App.tsx:1017:                       <ParkingSquare size={42} />
+frontend/src/App.tsx:1018:                       <h3>주차장을 찾고 있습니다</h3>
+frontend/src/api.ts:98:     if (window.ParkIQNative) {
+frontend/src/api.ts:99:       const response = await nativeRequest(
+frontend/src/api.ts:100:         "backend.request",
+frontend/src/api.ts:101:         {
+frontend/src/api.ts:102:           baseUrl,
+frontend/src/api.ts:103:           path,
+frontend/src/api.ts:104:           method: init.method ?? "GET",
+frontend/src/api.ts:105:           body: typeof init.body === "string" ? init.body : null,
+frontend/src/api.ts:106:         },
+frontend/src/api.ts:107:         { signal: controller.signal, timeoutMs: 13000 },
+frontend/src/api.ts:108:       );
+frontend/src/api.ts:109:       if (
+frontend/src/api.ts:110:         !object(response) ||
+frontend/src/api.ts:111:         !finite(response.status) ||
+frontend/src/api.ts:112:         typeof response.body !== "string"
+frontend/src/api.ts:113:       )
+frontend/src/api.ts:114:         throw new Error("차량 호스트의 서버 응답을 확인할 수 없습니다.");
+frontend/src/api.ts:115:       status = response.status;
+frontend/src/api.ts:116:       body = response.body;
+frontend/src/api.ts:117:     } else {
+frontend/src/api.ts:118:       const response = await fetch(`${baseUrl}/api${path}`, {
+frontend/src/api.ts:119:         ...init,
+frontend/src/api.ts:120:         signal: controller.signal,
+frontend/src/api.ts:121:         headers: init.body
+frontend/src/api.ts:122:           ? { "Content-Type": "application/json", ...init.headers }
+frontend/src/api.ts:123:           : init.headers,
+frontend/src/api.ts:124:       });
+frontend/src/api.ts:125:       status = response.status;
+frontend/src/api.ts:126:       body = await response.text();
+frontend/src/api.ts:127:     }
+backend/app/main.py:107:     @app.post("/api/recommendations", response_model=RecommendationResponse)
+backend/app/main.py:108:     async def recommendations(req: RecommendationRequest):
+backend/app/main.py:109:         try:
+backend/app/main.py:110:             return await recommend(req, repo, router, settings)
+backend/app/main.py:111:         except Exception as exc:
+backend/app/main.py:112:             raise HTTPException(
+backend/app/main.py:113:                 503, "주차 정보를 조회할 수 없습니다. 잠시 후 다시 시도해 주세요."
+backend/app/main.py:114:             ) from exc
+backend/app/main.py:115: 
+backend/app/main.py:116:     @app.post("/api/voice/interpret", response_model=VoiceIntent)
+backend/app/main.py:117:     async def voice(req: VoiceRequest):
+backend/app/main.py:118:         return parse_voice(req.text)
+backend/app/main.py:119: 
+backend/app/repository.py:12:     async def nearby(self, point: Point, radius_m: int) -> list[ParkingLot]: ...
+backend/app/repository.py:13:     async def search(self, query: str, limit: int) -> list[ParkingLot]: ...
+backend/app/repository.py:14:     async def health(self) -> bool: ...
+backend/app/repository.py:70:                 SELECT payload FROM parking_lots
+backend/app/repository.py:71:                 WHERE demo=%s AND ST_DWithin(location,
+backend/app/repository.py:72:                     ST_SetSRID(ST_MakePoint(%s,%s),4326)::geography,%s)
+backend/app/repository.py:73:                 ORDER BY location <-> ST_SetSRID(ST_MakePoint(%s,%s),4326)::geography
+backend/app/repository.py:74:             """,
+backend/app/repository.py:75:                 (self.demo, point.lng, point.lat, radius_m, point.lng, point.lat),
+backend/app/repository.py:76:             )
+backend/app/repository.py:77:             return [ParkingLot.model_validate(row[0]) for row in await result.fetchall()]
+backend/app/models.py:53:     radius_m: int = Field(default=2000, ge=100, le=2000)
+backend/app/recommendation.py:25:     lots = await repo.nearby(req.destination, req.radius_m)
+backend/app/recommendation.py:26:     full_count = sum(lot.available == 0 for lot in lots)
+backend/app/recommendation.py:27:     lots = [
+backend/app/recommendation.py:28:         lot
+backend/app/recommendation.py:29:         for lot in lots
+backend/app/recommendation.py:30:         if lot.available != 0
+backend/app/recommendation.py:31:         and lot.is_open is not False
+backend/app/recommendation.py:32:         and (not req.ev_only or lot.ev is True)
+backend/app/recommendation.py:33:         and (not req.accessible_only or lot.accessible is True)
+backend/app/recommendation.py:34:     ]
+backend/app/main.py:38:         if settings.sync_enabled and settings.data_mode == "live":
+backend/app/main.py:39:             task = asyncio.create_task(pipeline.run())
+backend/app/pipeline.py:53:     async def run(self):
+backend/app/pipeline.py:54:         while True:
+backend/app/pipeline.py:55:             await self.sync()
+backend/app/pipeline.py:56:             await asyncio.sleep(max(30, self.settings.sync_interval_seconds))
+backend/app/config.py:22:     sync_interval_seconds: int = 300
+backend/app/pipeline.py:19:         if settings.seoul_api_key.get_secret_value():
+backend/app/pipeline.py:20:             self.providers.append(
+backend/app/pipeline.py:21:                 SeoulProvider(settings.seoul_api_key.get_secret_value(), settings.seoul_base_url)
+backend/app/pipeline.py:22:             )
+backend/app/pipeline.py:23:         if settings.private_api_url:
+backend/app/pipeline.py:24:             self.providers.append(
+backend/app/pipeline.py:25:                 PrivateProvider(
+backend/app/pipeline.py:26:                     settings.private_api_url, settings.private_api_key.get_secret_value()
+backend/app/pipeline.py:27:                 )
+backend/app/pipeline.py:28:             )
+backend/app/providers/seoul.py:126:             metadata = await self.rows(client, "GetParkInfo")
+backend/app/providers/seoul.py:127:             occupancy = await self.rows(client, "GetParkingInfo")
+backend/app/providers/seoul.py:129:             if needs_coordinates(metadata):
+backend/app/providers/seoul.py:130:                 try:
+backend/app/providers/seoul.py:131:                     response = await client.get(PUBLIC_PARKING_URL)
+backend/app/providers/seoul.py:132:                     response.raise_for_status()
+backend/app/providers/seoul.py:133:                     references = response.json()
+backend/app/providers/seoul.py:134:                     if not isinstance(references, list) or not all(
+backend/app/providers/seoul.py:135:                         isinstance(row, dict) for row in references
+backend/app/providers/seoul.py:136:                     ):
+backend/app/providers/seoul.py:137:                         raise ValueError("invalid coordinate reference")
+backend/app/providers/seoul.py:138:                     metadata, count = enrich_coordinates(metadata, references)
+backend/app/providers/seoul.py:139:                     self.diagnostics = {
+backend/app/providers/seoul.py:140:                         "coordinate_enriched": count,
+backend/app/providers/seoul.py:141:                         "coordinate_reference": "seongdong_public_parking",
+backend/app/providers/seoul.py:142:                     }
+backend/app/providers/seoul.py:143:                 except (httpx.HTTPError, ValueError, TypeError):
+backend/app/providers/seoul.py:144:                     # Keep usable primary-source records if the reference is unavailable.
+backend/app/providers/seoul.py:145:                     self.diagnostics["coordinate_reference"] = "unavailable"
+backend/app/providers/seoul.py:146:         lots = normalize(metadata, occupancy)
+backend/app/providers/seoul.py:147:         self.diagnostics["metadata_rows"] = len(metadata)
+backend/app/providers/seoul.py:148:         self.diagnostics["normalized_rows"] = len(lots)
+backend/app/providers/seoul.py:149:         if not lots:
+backend/app/providers/seoul.py:150:             raise ProviderError("seoul returned no usable facilities")
+backend/app/providers/seoul.py:151:         return lots
+backend/app/providers/seongdong.py:45: def enrich_coordinates(metadata: list[dict], references: list[dict]) -> tuple[list[dict], int]:
+backend/app/providers/seongdong.py:46:     index: dict[tuple, set[tuple[float, float]]] = defaultdict(set)
+backend/app/providers/seongdong.py:47:     for reference in references:
+backend/app/providers/seongdong.py:48:         lat, lng = reference.get("위도_WGS84좌표"), reference.get("경도_WGS84좌표")
+backend/app/providers/seongdong.py:49:         if not valid_coordinates(lat, lng):
+backend/app/providers/seongdong.py:50:             continue
+backend/app/providers/seongdong.py:51:         name = _name(reference.get("주차장명", ""))
+backend/app/providers/seongdong.py:52:         if not name:
+backend/app/providers/seongdong.py:53:             continue
+backend/app/providers/seongdong.py:54:         for field in ("소재지지번주소", "소재지도로명주소"):
+backend/app/providers/seongdong.py:55:             parcel = _parcel(reference.get(field, ""))
+backend/app/providers/seongdong.py:56:             if parcel:
+backend/app/providers/seongdong.py:57:                 index[(name, parcel)].add((float(lat), float(lng)))
+backend/app/providers/seongdong.py:58:     result, enriched = [], 0
+backend/app/providers/seongdong.py:59:     for row in metadata:
+backend/app/providers/seongdong.py:60:         parcel = _parcel(row.get("ADDR", ""))
+backend/app/providers/seongdong.py:61:         coordinates = index.get((_name(row.get("PKLT_NM", "")), parcel), set())
+backend/app/providers/seongdong.py:62:         if not valid_coordinates(row.get("LAT"), row.get("LOT")) and len(coordinates) == 1:
+backend/app/providers/seongdong.py:63:             lat, lng = next(iter(coordinates))
+backend/app/providers/seongdong.py:64:             row = {**row, "LAT": lat, "LOT": lng, "_coordinate_source": "seongdong_public_parking"}
+backend/app/providers/seongdong.py:65:             enriched += 1
+backend/app/providers/seongdong.py:66:         result.append(row)
+backend/app/providers/seongdong.py:67:     return result, enriched
+backend/app/pipeline.py:35:                     lots = await provider.fetch()
+backend/app/pipeline.py:36:                     await self.repo.upsert(lots)
+backend/app/pipeline.py:37:                     self.status[provider.name] = {
+backend/app/pipeline.py:38:                         "state": "ok",
+backend/app/pipeline.py:39:                         "count": len(lots),
+backend/app/pipeline.py:40:                         "last_success": datetime.now(UTC).isoformat(),
+backend/app/pipeline.py:41:                         "diagnostics": getattr(provider, "diagnostics", {}),
+backend/app/repository.py:11:     async def upsert(self, lots: list[ParkingLot]) -> None: ...
+backend/app/repository.py:12:     async def nearby(self, point: Point, radius_m: int) -> list[ParkingLot]: ...
+backend/app/repository.py:49:                         INSERT INTO parking_lots (id, location, payload, demo, fetched_at)
+backend/app/repository.py:50:                         VALUES (%s, ST_SetSRID(ST_MakePoint(%s,%s),4326)::geography,%s,%s,%s)
+backend/app/repository.py:51:                         ON CONFLICT (id) DO UPDATE SET location=EXCLUDED.location,
+backend/app/repository.py:52:                             payload=EXCLUDED.payload, demo=EXCLUDED.demo,
+backend/app/repository.py:53:                             fetched_at=EXCLUDED.fetched_at
+backend/app/repository.py:54:                         WHERE parking_lots.fetched_at <= EXCLUDED.fetched_at
+backend/app/repository.py:55:                     """,
+backend/app/repository.py:56:                         (
+backend/app/repository.py:57:                             lot.id,
+backend/app/repository.py:58:                             lot.lng,
+backend/app/repository.py:59:                             lot.lat,
+backend/app/repository.py:60:                             Jsonb(lot.model_dump(mode="json")),
+backend/app/repository.py:61:                             lot.demo,
+backend/app/repository.py:62:                             lot.fetched_at,
+backend/app/repository.py:63:                         ),
+backend/app/repository.py:64:                     )
+backend/app/repository.py:65: 
+backend/app/repository.py:66:     async def nearby(self, point: Point, radius_m: int) -> list[ParkingLot]:
+backend/app/repository.py:67:         async with await psycopg.AsyncConnection.connect(self.dsn) as conn:
+backend/app/repository.py:68:             result = await conn.execute(
+backend/app/repository.py:69:                 """
+backend/app/repository.py:70:                 SELECT payload FROM parking_lots
+backend/app/repository.py:71:                 WHERE demo=%s AND ST_DWithin(location,
+backend/app/repository.py:72:                     ST_SetSRID(ST_MakePoint(%s,%s),4326)::geography,%s)
+backend/app/repository.py:73:                 ORDER BY location <-> ST_SetSRID(ST_MakePoint(%s,%s),4326)::geography
+backend/app/repository.py:74:             """,
+backend/app/repository.py:75:                 (self.demo, point.lng, point.lat, radius_m, point.lng, point.lat),
+backend/app/repository.py:76:             )
+backend/app/repository.py:77:             return [ParkingLot.model_validate(row[0]) for row in await result.fetchall()]
+backend/app/main.py:25:     repo = repository or (
+backend/app/main.py:26:         PostgisRepository(settings.database_url.get_secret_value(), settings.data_mode == "demo")
+backend/app/main.py:27:         if settings.repository == "postgres"
+backend/app/main.py:28:         else MemoryRepository()
+backend/app/main.py:29:     )
+backend/app/main.py:35:         if settings.data_mode == "demo":
+backend/app/main.py:36:             await repo.upsert(demo_lots())
+backend/app/routing.py:113:         if self.settings.routing_api_url:
+backend/app/routing.py:114:             try:
+backend/app/routing.py:115:                 async with (
+backend/app/routing.py:116:                     asyncio.timeout(4),
+backend/app/routing.py:117:                     self.semaphore,
+backend/app/routing.py:118:                     httpx.AsyncClient(timeout=3) as client,
+backend/app/routing.py:119:                 ):
+backend/app/routing.py:120:                     token = self.settings.routing_api_key.get_secret_value()
+backend/app/routing.py:121:                     response = await client.post(
+backend/app/routing.py:122:                         self.settings.routing_api_url,
+backend/app/routing.py:123:                         headers={"Authorization": f"Bearer {token}"},
+backend/app/routing.py:124:                         json={
+backend/app/routing.py:125:                             "origin": origin.model_dump(),
+backend/app/routing.py:126:                             "parking": parking.model_dump(),
+backend/app/routing.py:127:                             "destination": destination.model_dump(),
+backend/app/routing.py:128:                         },
+backend/app/routing.py:129:                     )
+backend/app/routing.py:130:                     response.raise_for_status()
+backend/app/routing.py:131:                     pair = RoutePair.model_validate(response.json())
+backend/app/routing.py:132:                     pair.source = "routing_provider"
+backend/app/routing.py:133:                     self.last_error["provider"] = None
+backend/app/routing.py:134:                     return pair
+backend/app/routing.py:135:             except (httpx.HTTPError, ValueError, TimeoutError) as exc:
+backend/app/routing.py:136:                 self._fail("provider", exc)
+backend/app/routing.py:137:         if self.settings.valhalla_url:
+backend/app/routing.py:137:         if self.settings.valhalla_url:
+backend/app/routing.py:138:             try:
+backend/app/routing.py:139:                 async with (
+backend/app/routing.py:140:                     asyncio.timeout(4),
+backend/app/routing.py:141:                     self.semaphore,
+backend/app/routing.py:142:                     httpx.AsyncClient(timeout=3) as client,
+backend/app/routing.py:143:                 ):
+backend/app/routing.py:144:                     drive, walk = await asyncio.gather(
+backend/app/routing.py:145:                         valhalla_leg(client, self.settings.valhalla_url, origin, parking, "auto"),
+backend/app/routing.py:146:                         valhalla_leg(
+backend/app/routing.py:147:                             client, self.settings.valhalla_url, parking, destination, "pedestrian"
+backend/app/routing.py:148:                         ),
+backend/app/routing.py:149:                     )
+backend/app/routing.py:150:                     self.last_error["valhalla"] = None
+backend/app/routing.py:151:                     return RoutePair(drive=drive, walk=walk, source="valhalla")
+backend/app/routing.py:152:             except (
+backend/app/routing.py:153:                 httpx.HTTPError,
+backend/app/routing.py:154:                 ValueError,
+backend/app/routing.py:155:                 KeyError,
+backend/app/routing.py:156:                 IndexError,
+backend/app/routing.py:157:                 TypeError,
+backend/app/routing.py:158:                 TimeoutError,
+backend/app/routing.py:159:             ) as exc:
+backend/app/routing.py:160:                 self._fail("valhalla", exc)
+backend/app/routing.py:161:         return estimate(origin, parking, destination)
+backend/app/routing.py:70: async def valhalla_leg(
+backend/app/routing.py:71:     client: httpx.AsyncClient, base_url: str, start: Point, end: Point, costing: str
+backend/app/routing.py:72: ) -> Leg:
+backend/app/routing.py:73:     response = await client.post(
+backend/app/routing.py:74:         f"{base_url.rstrip('/')}/route",
+backend/app/routing.py:75:         json={
+backend/app/routing.py:76:             "locations": [
+backend/app/routing.py:77:                 {"lat": start.lat, "lon": start.lng},
+backend/app/routing.py:78:                 {"lat": end.lat, "lon": end.lng},
+backend/app/routing.py:79:             ],
+backend/app/routing.py:80:             "costing": costing,
+backend/app/routing.py:81:             "units": "kilometers",
+backend/app/routing.py:82:             "directions_type": "none",
+backend/app/routing.py:83:         },
+backend/app/routing.py:84:     )
+backend/app/routing.py:85:     response.raise_for_status()
+backend/app/routing.py:86:     trip = response.json()["trip"]
+backend/app/routing.py:87:     path = [p for leg in trip["legs"] for p in decode_polyline(leg["shape"])]
+backend/app/routing.py:88:     if len(path) < 2:
+backend/app/routing.py:89:         # Start and end snapped to the same point; keep a drawable segment.
+backend/app/routing.py:90:         path = [start, end]
+backend/app/routing.py:91:     return Leg(
+backend/app/routing.py:92:         minutes=round(max(0.1, trip["summary"]["time"] / 60), 1),
+backend/app/routing.py:93:         meters=round(trip["summary"]["length"] * 1000),
+backend/app/routing.py:94:         path=path,
+backend/app/routing.py:95:     )
+backend/app/routing.py:96: 
+backend/app/routing.py:97: 
+backend/app/routing.py:98: class Router:
+backend/app/routing.py:99:     def __init__(self, settings: Settings):
+backend/app/routing.py:100:         self.settings = settings
+backend/app/routing.py:101:         self.semaphore = asyncio.Semaphore(8)
+backend/app/routing.py:102:         # Last fallback reason per engine, surfaced via /api/health so a silent
+backend/app/routing.py:103:         # straight-line fallback is diagnosable (e.g. wrong VALHALLA_URL host).
+backend/app/routing.py:104:         self.last_error: dict[str, str | None] = {"provider": None, "valhalla": None}
+backend/app/routing.py:105: 
+backend/app/routing.py:26: def estimate(origin: Point, parking: Point, destination: Point) -> RoutePair:
+backend/app/routing.py:27:     drive_m = round(distance_m(origin, parking) * 1.35)
+backend/app/routing.py:28:     walk_m = round(distance_m(parking, destination) * 1.2)
+backend/app/routing.py:29:     # Display geometry is illustrative; no claim of a navigable road route.
+backend/app/routing.py:30:     corner = Point(lat=origin.lat, lng=parking.lng)
+backend/app/routing.py:31:     walk_corner = Point(lat=parking.lat, lng=destination.lng)
+backend/app/routing.py:32:     return RoutePair(
+backend/app/routing.py:33:         drive=Leg(
+backend/app/routing.py:34:             minutes=round(max(1.0, drive_m / 250 + 1.5), 1),
+backend/app/routing.py:35:             meters=drive_m,
+backend/app/routing.py:36:             path=[origin, corner, parking],
+backend/app/routing.py:37:         ),
+backend/app/routing.py:38:         walk=Leg(
+backend/app/routing.py:39:             minutes=round(max(0.5, walk_m / 75), 1),
+backend/app/routing.py:40:             meters=walk_m,
+backend/app/routing.py:41:             path=[parking, walk_corner, destination],
+backend/app/routing.py:42:         ),
+backend/app/routing.py:43:         source="distance_estimate",
+backend/app/routing.py:44:     )
+backend/app/routing.py:45: 
+backend/app/routing.py:46: 
+backend/app/routing.py:47: def decode_polyline(encoded: str, precision: int = 6) -> list[Point]:
+backend/app/routing.py:48:     """Decode a Google-style encoded polyline (Valhalla uses precision 6)."""
+backend/app/routing.py:49:     factor = 10**precision
+backend/app/routing.py:50:     points: list[Point] = []
+backend/app/recommendation.py:52:         search = round(5.0 if unknown else 0.8 + 5 * occupancy**3, 1)
+backend/app/recommendation.py:53:         cost = fee(lot, req.stay_minutes)
+backend/app/recommendation.py:54:         walk_weight, cost_weight = {
+backend/app/recommendation.py:55:             "balanced": (1.25, 0.15),
+backend/app/recommendation.py:56:             "less_walking": (3.5, 0.1),
+backend/app/recommendation.py:57:             "fastest": (1.0, 0.0),
+backend/app/recommendation.py:58:             "cheapest": (1.0, 4.0),
+backend/app/recommendation.py:59:         }[req.preference]
+backend/app/recommendation.py:60:         score = route.drive.minutes + search + route.walk.minutes * walk_weight
+backend/app/recommendation.py:61:         score += (cost / 1000 if cost is not None else 8) * cost_weight
+backend/app/recommendation.py:62:         score += 3 if unknown else 2 if risk == "high" else 0
+backend/app/recommendation.py:63:         reasons = [f"목적지까지 도보 {route.walk.meters}m"]
+backend/app/recommendation.py:64:         reasons.append("잔여 정보 확인 필요" if unknown else f"현재 {lot.available}면 여유")
+backend/app/recommendation.py:65:         if req.preference == "less_walking":
+backend/app/recommendation.py:66:             reasons.append("보행 부담을 우선 반영했어요")
+backend/app/recommendation.py:67:         elif req.preference == "cheapest":
+backend/app/recommendation.py:68:             reasons.append("예상 주차 요금을 우선 반영했어요")
+backend/app/recommendation.py:69:         elif req.preference == "fastest":
+backend/app/recommendation.py:70:             reasons.append("주행·탐색·도보 합계 시간을 우선 반영했어요")
+backend/app/recommendation.py:71:         return Recommendation(
+backend/app/recommendation.py:72:             lot=lot,
+backend/app/recommendation.py:73:             drive_minutes=route.drive.minutes,
+backend/app/recommendation.py:74:             walk_minutes=route.walk.minutes,
+backend/app/recommendation.py:75:             walk_meters=route.walk.meters,
+backend/app/recommendation.py:76:             search_minutes=search,
+backend/app/recommendation.py:77:             total_minutes=round(route.drive.minutes + route.walk.minutes + search, 1),
+backend/app/recommendation.py:78:             estimated_fee=cost,
+backend/app/recommendation.py:79:             risk=risk,
+backend/app/recommendation.py:80:             stale=stale,
+backend/app/recommendation.py:81:             score=round(score, 3),
+backend/app/recommendation.py:82:             reasons=reasons,
+backend/app/recommendation.py:83:             routing_source=route.source,
+backend/app/recommendation.py:84:             drive_path=route.drive.path,
+backend/app/recommendation.py:85:             walk_path=route.walk.path,
+backend/app/recommendation.py:86:         )
+backend/app/recommendation.py:87: 
+backend/app/recommendation.py:88:     candidates = sorted(
+backend/app/recommendation.py:89:         await asyncio.gather(*(evaluate(lot) for lot in lots)),
+backend/app/recommendation.py:90:         key=lambda item: (item.score, item.lot.id),
+backend/app/recommendation.py:91:     )[: req.limit]
+backend/app/recommendation.py:92:     warnings = []
+backend/app/recommendation.py:103:     return RecommendationResponse(
+backend/app/recommendation.py:104:         mode=settings.data_mode,
+backend/app/recommendation.py:105:         generated_at=now,
+backend/app/recommendation.py:106:         destination=req.destination,
+backend/app/recommendation.py:107:         preference=req.preference,
+backend/app/recommendation.py:108:         candidates=candidates,
+backend/app/recommendation.py:109:         excluded_full=full_count,
+backend/app/recommendation.py:110:         warnings=warnings,
+backend/app/recommendation.py:111:     )
+frontend/src/api.ts:214:     const data = await remote(baseUrl, "/recommendations", {
+frontend/src/api.ts:215:       method: "POST",
+frontend/src/api.ts:216:       signal,
+frontend/src/api.ts:217:       body: JSON.stringify({
+frontend/src/api.ts:218:         origin,
+frontend/src/api.ts:219:         destination,
+frontend/src/api.ts:220:         preference,
+frontend/src/api.ts:221:         stay_minutes,
+frontend/src/api.ts:222:         ev_only,
+frontend/src/api.ts:223:       }),
+frontend/src/api.ts:224:     });
+frontend/src/api.ts:225:     if (!validResult(data))
+frontend/src/api.ts:226:       throw new Error("서버의 주차 추천 응답 형식이 올바르지 않습니다.");
+frontend/src/api.ts:227:     return data;
+frontend/src/api.ts:228:   },
+frontend/src/vehicle.ts:64:   if (window.ParkIQNative) {
+frontend/src/vehicle.ts:65:     if (testLocation)
+frontend/src/vehicle.ts:66:       throw new Error(
+frontend/src/vehicle.ts:67:         "테스트 위치에서는 실제 차량 안내를 시작할 수 없습니다. GPS 위치로 복귀해 주세요.",
+frontend/src/vehicle.ts:68:       );
+frontend/src/vehicle.ts:69:     if (candidate.lot.demo)
+frontend/src/vehicle.ts:70:       throw new Error(
+frontend/src/vehicle.ts:71:         "시연 주차장을 실제 차량으로 안내할 수 없습니다. 실데이터 모드를 연결해 주세요.",
+frontend/src/vehicle.ts:72:       );
+frontend/src/vehicle.ts:73:     await nativeRequest(
+frontend/src/vehicle.ts:74:       asWaypoint ? "navigation.addWaypoint" : "navigation.start",
+frontend/src/vehicle.ts:75:       {
+frontend/src/vehicle.ts:76:         parking: candidate.lot,
+frontend/src/vehicle.ts:77:         destination,
+frontend/src/vehicle.ts:78:       },
+frontend/src/vehicle.ts:79:     );
+frontend/src/vehicle.ts:80:     return asWaypoint
+frontend/src/vehicle.ts:81:       ? "차량 내비게이션에 주차장 경유지를 추가했어요."
+frontend/src/vehicle.ts:82:       : "차량 내비게이션에서 경로 요청을 수락했습니다.";
+frontend/src/vehicle.ts:83:   }
+frontend/src/vehicle.ts:84:   return "시연 경로를 시작했어요. 실제 차량에는 전송되지 않습니다.";
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:25:     private val listener = object : NaviHelperEventListener {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:26:         override fun onRoutingCompleted() { if (!pendingCancel && !pendingWaypoint) finish(true, "route_ready") }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:27:         override fun onRouteCancelled() { if (pendingCancel) finish(true, "route_cancelled") }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:28:         override fun onWaypointChanged(info: WaypointChangedInfo) {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:29:             if (pendingWaypoint && info.index == WaypointIndex.FIRST && info.cmdType == WaypointCmdType.ADD)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:30:                 finish(true, "waypoint_added")
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:31:         }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:32:         override fun onError(errorCode: NaviErrorCode) { finish(false, "내비게이션 오류: $errorCode") }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:33:     }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:34:     init {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:35:         helper.initialize(onConnected = {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:36:             connected = true
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:37:             helper.addListener(listener)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:38:         }, onFailed = { connected = false })
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:39:     }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:40:     private fun finish(ok: Boolean, message: String) {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:41:         handler.post {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:42:             handler.removeCallbacks(timeout)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:43:             val callback = pending
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:44:             pending = null
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:45:             callback?.invoke(ok, message)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:46:         }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:47:     }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:203:                     "navigation.start", "navigation.addWaypoint" -> {
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:204:                         val parking = params.optJSONObject("parking")
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:205:                         if (parking == null) reply(id, false, "주차장 정보가 없습니다.")
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:206:                         else navigation.start(parking, msg.optString("method") == "navigation.addWaypoint") { ok, message -> reply(id, ok, message) }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:207:                     }
+android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt:208:                     "navigation.cancel" -> navigation.cancel { ok, message -> reply(id, ok, message) }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:48:     fun start(parking: JSONObject, asWaypoint: Boolean = false, callback: (Boolean, String) -> Unit) {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:49:         if (!connected) { callback(false, "Pleos 내비게이션이 연결되지 않았습니다."); return }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:50:         if (pending != null) { callback(false, "다른 경로 요청을 처리 중입니다."); return }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:51:         if (parking.optBoolean("demo", true)) { callback(false, "시연 주차장을 실제 차량으로 안내할 수 없습니다."); return }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:52:         val lat = parking.optDouble("lat", Double.NaN)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:53:         val lng = parking.optDouble("lng", Double.NaN)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:54:         if (!lat.isFinite() || !lng.isFinite() || lat !in -90.0..90.0 || lng !in -180.0..180.0) {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:55:             callback(false, "주차장 좌표가 유효하지 않습니다."); return
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:56:         }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:57:         pending = callback; pendingCancel = false; pendingWaypoint = asWaypoint
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:58:         handler.postDelayed(timeout, 5000)
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:59:         try {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:60:             if (asWaypoint) {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:61:                 // Preserves the existing destination; requires an active route in Navi Service.
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:62:                 helper.addWaypoint(RequestWaypointInfo(latitude = lat, longitude = lng,
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:63:                     waypointIndex = WaypointIndex.FIRST, poiName = parking.getString("name"),
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:64:                     poiId = "", poiSubId = "0", address = parking.optString("address")))
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:65:             } else {
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:66:                 // Stop driving at the parking facility. The final venue is reached on foot.
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:67:                 helper.requestRoute(RouteInfo(latitude = lat, longitude = lng,
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:68:                     poiName = parking.getString("name"), poiId = "", poiSubId = "0",
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:69:                     address = parking.optString("address")))
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:70:             }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:71:         } catch (_: Exception) { finish(false, "경로 요청에 실패했습니다.") }
+android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt:72:     }

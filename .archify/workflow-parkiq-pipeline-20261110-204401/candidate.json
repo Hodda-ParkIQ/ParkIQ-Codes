@@ -1,0 +1,732 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ParkIQ 현재 시스템 파이프라인",
+    "locale": "ko",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-parkiq-pipeline-20261110-204401/parkiq-pipeline.html",
+    "repository": {
+      "url": "https://github.com/Hodda-ParkIQ/ParkIQ-Codes.git",
+      "revision": "aeecff255b6ebd0f1f60a46451d2669091fe5844",
+      "link_mode": "local-only"
+    },
+    "views": [
+      {
+        "id": "client-flow",
+        "label": "앱과 서버 연결",
+        "focus": [
+          "bundle",
+          "input",
+          "source",
+          "local",
+          "api",
+          "ui",
+          "error"
+        ]
+      },
+      {
+        "id": "data-flow",
+        "label": "주차 데이터 수집",
+        "focus": [
+          "sync",
+          "feeds",
+          "normalize",
+          "seed",
+          "store",
+          "query",
+          "filter"
+        ]
+      },
+      {
+        "id": "route-flow",
+        "label": "경로 계산과 실제 안내",
+        "focus": [
+          "provider",
+          "valhalla",
+          "estimate",
+          "score",
+          "json",
+          "ui",
+          "gate",
+          "native",
+          "callback",
+          "blocked"
+        ]
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "client",
+      "label": "앱 화면·입력"
+    },
+    {
+      "id": "request",
+      "label": "API·조회"
+    },
+    {
+      "id": "ingest",
+      "label": "백그라운드 수집"
+    },
+    {
+      "id": "route",
+      "label": "경로 계산"
+    },
+    {
+      "id": "result",
+      "label": "추천·응답"
+    },
+    {
+      "id": "vehicle",
+      "label": "실제 차량 안내"
+    }
+  ],
+  "mainPath": [
+    "bundle",
+    "input",
+    "source",
+    "api",
+    "query",
+    "filter"
+  ],
+  "nodes": [
+    {
+      "id": "bundle",
+      "lane": "client",
+      "col": 0,
+      "type": "frontend",
+      "label": "앱 실행",
+      "sublabel": "APK 내장 화면 로드",
+      "sources": [
+        {
+          "path": "android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt",
+          "line": 89,
+          "end_line": 118
+        }
+      ],
+      "icon": "start"
+    },
+    {
+      "id": "input",
+      "lane": "client",
+      "col": 1,
+      "type": "frontend",
+      "label": "목적지·조건 입력",
+      "sublabel": "음성·GPS·테스트 위치",
+      "sources": [
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 190,
+          "end_line": 206
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 451,
+          "end_line": 490
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 492,
+          "end_line": 566
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "lane": "client",
+      "col": 2,
+      "type": "security",
+      "label": "서버 주소 설정?",
+      "sublabel": "저장값 → 빌드 기본값",
+      "sources": [
+        {
+          "path": "frontend/src/backend-config.ts",
+          "line": 28,
+          "end_line": 43
+        },
+        {
+          "path": "frontend/src/api.ts",
+          "line": 196,
+          "end_line": 229
+        }
+      ],
+      "icon": "decision"
+    },
+    {
+      "id": "local",
+      "lane": "client",
+      "col": 3,
+      "type": "frontend",
+      "label": "앱 내부 시연",
+      "sublabel": "가상 주차장·로컬 계산",
+      "sources": [
+        {
+          "path": "frontend/src/local-api.ts",
+          "line": 50,
+          "end_line": 149
+        },
+        {
+          "path": "frontend/src/api.ts",
+          "line": 196,
+          "end_line": 214
+        }
+      ]
+    },
+    {
+      "id": "ui",
+      "lane": "client",
+      "col": 4,
+      "type": "frontend",
+      "label": "목록·지도 표시",
+      "sublabel": "순위·요금·경로 미리보기",
+      "sources": [
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 1000,
+          "end_line": 1088
+        },
+        {
+          "path": "frontend/src/ParkingMap.tsx",
+          "line": 140,
+          "end_line": 196
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "lane": "client",
+      "col": 5,
+      "type": "security",
+      "label": "차량 안내 조건",
+      "sublabel": "최신 상태 재확인",
+      "sources": [
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 390,
+          "end_line": 453
+        },
+        {
+          "path": "frontend/src/vehicle.ts",
+          "line": 64,
+          "end_line": 84
+        }
+      ],
+      "icon": "decision"
+    },
+    {
+      "id": "error",
+      "lane": "request",
+      "col": 0,
+      "type": "frontend",
+      "label": "연결 오류 표시",
+      "sublabel": "시연으로 자동 전환 안 함",
+      "sources": [
+        {
+          "path": "frontend/src/api.ts",
+          "line": 128,
+          "end_line": 165
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 1006,
+          "end_line": 1018
+        }
+      ],
+      "icon": "failure"
+    },
+    {
+      "id": "api",
+      "lane": "request",
+      "col": 2,
+      "type": "backend",
+      "label": "FastAPI 요청",
+      "sublabel": "장소·추천·음성 API",
+      "sources": [
+        {
+          "path": "frontend/src/api.ts",
+          "line": 98,
+          "end_line": 127
+        },
+        {
+          "path": "backend/app/main.py",
+          "line": 107,
+          "end_line": 119
+        }
+      ]
+    },
+    {
+      "id": "query",
+      "lane": "request",
+      "col": 3,
+      "type": "backend",
+      "label": "주변 시설 조회",
+      "sublabel": "목적지 반경 최대 2km",
+      "sources": [
+        {
+          "path": "backend/app/repository.py",
+          "line": 12,
+          "end_line": 14
+        },
+        {
+          "path": "backend/app/repository.py",
+          "line": 70,
+          "end_line": 77
+        },
+        {
+          "path": "backend/app/models.py",
+          "line": 53,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "filter",
+      "lane": "request",
+      "col": 4,
+      "type": "backend",
+      "label": "후보 필터링",
+      "sublabel": "만차·폐쇄·EV 등",
+      "sources": [
+        {
+          "path": "backend/app/recommendation.py",
+          "line": 25,
+          "end_line": 34
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "lane": "ingest",
+      "col": 0,
+      "type": "messagebus",
+      "label": "주기 수집 시작",
+      "sublabel": "live + sync, 기본 300초",
+      "sources": [
+        {
+          "path": "backend/app/main.py",
+          "line": 38,
+          "end_line": 39
+        },
+        {
+          "path": "backend/app/pipeline.py",
+          "line": 53,
+          "end_line": 56
+        },
+        {
+          "path": "backend/app/config.py",
+          "line": 22,
+          "end_line": 22
+        }
+      ],
+      "icon": "clock"
+    },
+    {
+      "id": "feeds",
+      "lane": "ingest",
+      "col": 1,
+      "type": "external",
+      "label": "주차 공급 API",
+      "sublabel": "서울시 + 민간 어댑터",
+      "sources": [
+        {
+          "path": "backend/app/pipeline.py",
+          "line": 19,
+          "end_line": 28
+        },
+        {
+          "path": "backend/app/providers/seoul.py",
+          "line": 126,
+          "end_line": 127
+        }
+      ],
+      "tag": "설정한 공급자만"
+    },
+    {
+      "id": "normalize",
+      "lane": "ingest",
+      "col": 2,
+      "type": "backend",
+      "label": "정규화·좌표 보완",
+      "sublabel": "동일 시설명·지번 매칭",
+      "sources": [
+        {
+          "path": "backend/app/providers/seoul.py",
+          "line": 129,
+          "end_line": 151
+        },
+        {
+          "path": "backend/app/providers/seongdong.py",
+          "line": 45,
+          "end_line": 67
+        },
+        {
+          "path": "backend/app/pipeline.py",
+          "line": 35,
+          "end_line": 41
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "lane": "ingest",
+      "col": 3,
+      "type": "database",
+      "label": "공간 데이터 저장",
+      "sublabel": "PostgreSQL + PostGIS",
+      "sources": [
+        {
+          "path": "backend/app/repository.py",
+          "line": 11,
+          "end_line": 12
+        },
+        {
+          "path": "backend/app/repository.py",
+          "line": 49,
+          "end_line": 77
+        },
+        {
+          "path": "backend/app/main.py",
+          "line": 25,
+          "end_line": 29
+        }
+      ],
+      "tag": "개발: 메모리 가능"
+    },
+    {
+      "id": "seed",
+      "lane": "ingest",
+      "col": 4,
+      "type": "database",
+      "label": "서버 시연 자료",
+      "sublabel": "시작 시 가상 자료 주입",
+      "sources": [
+        {
+          "path": "backend/app/main.py",
+          "line": 35,
+          "end_line": 36
+        }
+      ],
+      "tag": "DATA_MODE=demo"
+    },
+    {
+      "id": "provider",
+      "lane": "route",
+      "col": 2,
+      "type": "external",
+      "label": "계약 경로 API",
+      "sublabel": "설정 시 우선 호출",
+      "sources": [
+        {
+          "path": "backend/app/routing.py",
+          "line": 113,
+          "end_line": 137
+        }
+      ]
+    },
+    {
+      "id": "valhalla",
+      "lane": "route",
+      "col": 3,
+      "type": "backend",
+      "label": "Valhalla 도로 경로",
+      "sublabel": "차량 auto · 도보 pedestrian",
+      "sources": [
+        {
+          "path": "backend/app/routing.py",
+          "line": 137,
+          "end_line": 161
+        },
+        {
+          "path": "backend/app/routing.py",
+          "line": 70,
+          "end_line": 105
+        }
+      ]
+    },
+    {
+      "id": "estimate",
+      "lane": "route",
+      "col": 4,
+      "type": "backend",
+      "label": "거리 기반 추정",
+      "sublabel": "현재 코드: 꺾은 선 3점",
+      "sources": [
+        {
+          "path": "backend/app/routing.py",
+          "line": 26,
+          "end_line": 50
+        }
+      ],
+      "icon": "waiting",
+      "tag": "실제 도로 경로 아님"
+    },
+    {
+      "id": "score",
+      "lane": "result",
+      "col": 3,
+      "type": "backend",
+      "label": "추천 점수 계산",
+      "sublabel": "주행 + 탐색 + 도보 + 요금",
+      "sources": [
+        {
+          "path": "backend/app/recommendation.py",
+          "line": 52,
+          "end_line": 92
+        }
+      ]
+    },
+    {
+      "id": "json",
+      "lane": "result",
+      "col": 4,
+      "type": "backend",
+      "label": "추천 JSON 응답",
+      "sublabel": "후보·경로·경고·시각",
+      "sources": [
+        {
+          "path": "backend/app/recommendation.py",
+          "line": 103,
+          "end_line": 111
+        },
+        {
+          "path": "frontend/src/api.ts",
+          "line": 214,
+          "end_line": 228
+        }
+      ]
+    },
+    {
+      "id": "blocked",
+      "lane": "vehicle",
+      "col": 3,
+      "type": "security",
+      "label": "차량 전송 안 함",
+      "sublabel": "웹 시연·가상·테스트",
+      "sources": [
+        {
+          "path": "frontend/src/vehicle.ts",
+          "line": 64,
+          "end_line": 84
+        }
+      ],
+      "icon": "stop"
+    },
+    {
+      "id": "callback",
+      "lane": "vehicle",
+      "col": 4,
+      "type": "backend",
+      "label": "성공·실패 회신",
+      "sublabel": "SDK 콜백으로 결과 확정",
+      "sources": [
+        {
+          "path": "android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt",
+          "line": 25,
+          "end_line": 47
+        },
+        {
+          "path": "android/app/src/main/java/ai/parkiq/vehicle/MainActivity.kt",
+          "line": 203,
+          "end_line": 208
+        }
+      ],
+      "icon": "success"
+    },
+    {
+      "id": "native",
+      "lane": "vehicle",
+      "col": 5,
+      "type": "external",
+      "label": "Pleos NaviHelper",
+      "sublabel": "주차장 목적지·경유지 요청",
+      "sources": [
+        {
+          "path": "android/app/src/main/java/ai/parkiq/vehicle/PleosNavigation.kt",
+          "line": 48,
+          "end_line": 72
+        }
+      ],
+      "tag": "차량 호스트에서만"
+    }
+  ],
+  "edges": [
+    {
+      "from": "bundle",
+      "to": "input",
+      "variant": "default"
+    },
+    {
+      "from": "input",
+      "to": "source",
+      "variant": "default"
+    },
+    {
+      "from": "source",
+      "to": "local",
+      "variant": "default",
+      "label": "주소 없음"
+    },
+    {
+      "from": "local",
+      "to": "ui",
+      "variant": "default",
+      "label": "내부 결과"
+    },
+    {
+      "from": "source",
+      "to": "api",
+      "variant": "emphasis",
+      "label": "주소 있음"
+    },
+    {
+      "from": "api",
+      "to": "error",
+      "variant": "default",
+      "label": "요청 실패",
+      "role": "error"
+    },
+    {
+      "from": "api",
+      "to": "query",
+      "variant": "emphasis",
+      "label": "추천 요청"
+    },
+    {
+      "from": "query",
+      "to": "filter",
+      "variant": "default"
+    },
+    {
+      "from": "sync",
+      "to": "feeds",
+      "variant": "dashed",
+      "label": "주기 실행",
+      "role": "async"
+    },
+    {
+      "from": "feeds",
+      "to": "normalize",
+      "variant": "default"
+    },
+    {
+      "from": "normalize",
+      "to": "store",
+      "variant": "default",
+      "label": "업서트"
+    },
+    {
+      "from": "seed",
+      "to": "store",
+      "variant": "default",
+      "label": "시연일 때"
+    },
+    {
+      "from": "store",
+      "to": "query",
+      "variant": "default",
+      "label": "시설 자료"
+    },
+    {
+      "from": "filter",
+      "to": "provider",
+      "variant": "default",
+      "label": "후보별 계산",
+      "role": "branch"
+    },
+    {
+      "from": "provider",
+      "to": "valhalla",
+      "variant": "default",
+      "label": "미설정·실패"
+    },
+    {
+      "from": "valhalla",
+      "to": "estimate",
+      "variant": "default",
+      "label": "미설정·실패"
+    },
+    {
+      "from": "provider",
+      "to": "score",
+      "variant": "default",
+      "label": "성공"
+    },
+    {
+      "from": "valhalla",
+      "to": "score",
+      "variant": "emphasis",
+      "label": "성공"
+    },
+    {
+      "from": "estimate",
+      "to": "score",
+      "variant": "default",
+      "label": "추정값"
+    },
+    {
+      "from": "score",
+      "to": "json",
+      "variant": "default"
+    },
+    {
+      "from": "json",
+      "to": "ui",
+      "variant": "emphasis",
+      "label": "JSON 반환",
+      "role": "return"
+    },
+    {
+      "from": "ui",
+      "to": "gate",
+      "variant": "default",
+      "label": "안내 선택"
+    },
+    {
+      "from": "gate",
+      "to": "blocked",
+      "variant": "security",
+      "label": "전송 조건 불충족",
+      "role": "error"
+    },
+    {
+      "from": "gate",
+      "to": "native",
+      "variant": "emphasis",
+      "label": "실차·실데이터·GPS"
+    },
+    {
+      "from": "native",
+      "to": "callback",
+      "variant": "default",
+      "label": "완료·오류 콜백",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "현재 경로 문제를 읽는 기준",
+      "items": [
+        "Valhalla가 미설정이거나 경로 요청이 실패하면 distance_estimate로 내려갑니다.",
+        "이 분기의 꺾은 선은 도로를 따라 계산한 차량 경로가 아닙니다. 지도 미리보기와 실제 NaviHelper 안내는 별도입니다."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "입력·연결 정책",
+      "items": [
+        "음성은 STT 전사 또는 Gleo 함수 호출로 입력됩니다. GPS 대신 테스트 좌표를 지정할 수도 있습니다.",
+        "APK는 UI를 내장합니다. 서버 주소가 없으면 로컬 시연, 주소가 있으면 JSON API를 호출하며 통신 오류를 시연으로 숨기지 않습니다."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "데이터 신뢰성",
+      "items": [
+        "실데이터 수집은 설정된 공급자만 사용합니다. 실패하면 기존 자료와 원본 관측 시각을 보존합니다.",
+        "성동구 누락 좌표는 공식 자료의 시설명·지번이 일치할 때만 보완합니다. 잔여 대수 미제공은 미확인으로 유지합니다."
+      ]
+    }
+  ]
+}

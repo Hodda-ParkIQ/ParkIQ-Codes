@@ -60,6 +60,10 @@ android {
     }
 }
 
+// Compile with a full JDK 21 regardless of the JVM running Gradle. IDE-bundled
+// runtimes (e.g. the VS Code Java extension JRE) lack jlink, which AGP needs.
+kotlin { jvmToolchain(21) }
+
 tasks.named("preBuild").configure { dependsOn(generateGleoSchema, bundleWebUi) }
 
 dependencies {

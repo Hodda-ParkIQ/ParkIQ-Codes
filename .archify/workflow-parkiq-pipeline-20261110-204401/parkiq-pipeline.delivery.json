@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "95b2350a-3e40-4c4d-a548-7de9e1dd6aa7",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/mnt/ba2c3617-713f-420c-b008-76ddd399230d/hyundai/.archify/workflow-parkiq-pipeline-20261110-204401/candidate.json",
+  "output": "/mnt/ba2c3617-713f-420c-b008-76ddd399230d/hyundai/.archify/workflow-parkiq-pipeline-20261110-204401/parkiq-pipeline.html",
+  "specification": {
+    "sha256": "19920412dd474472b015e6f82150a8d4dd6a7dd7936353dc299ed1e6d4bc4d54",
+    "bytes": 16435
+  },
+  "artifact": {
+    "sha256": "35571446fb1314f5da5b1c8fc562e306e9b22673cdd09a7efecbf6756dcc473d",
+    "bytes": 881354
+  }
+}
