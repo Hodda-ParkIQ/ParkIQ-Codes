@@ -32,6 +32,7 @@ import {
   saveBackendUrl,
   subscribeBackendUrl,
 } from "./backend-config";
+import { distance } from "./local-api";
 import ParkingMap from "./ParkingMap";
 import Modal from "./Modal";
 import TestLocationSettings from "./TestLocationSettings";
@@ -60,15 +61,20 @@ import {
   subscribeVehicle,
 } from "./vehicle";
 
-const DEFAULT_PLACE: Place = {
-  id: "seongsu-cafe",
-  name: "성수 카페거리",
-  address: "서울 성동구 연무장길",
-  category: "카페 · 거리",
-  lat: 37.5446,
-  lng: 127.0542,
-};
 const DEFAULT_ORIGIN: Point = { lat: 37.5385, lng: 127.0602 };
+// Without an explicit destination, search around the current position and
+// re-center once the vehicle has moved this far (GPS ticks every ~5s/10m).
+const NEARBY_RECENTER_M = 150;
+function nearbyPlace({ lat, lng }: Point): Place {
+  return {
+    lat,
+    lng,
+    id: `nearby:${lat.toFixed(5)},${lng.toFixed(5)}`,
+    name: "내 위치 주변",
+    address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+    category: "현재 위치",
+  };
+}
 const preferences: {
   id: Preference;
   name: string;
@@ -103,7 +109,10 @@ export default function App() {
   const [connectionMessage, setConnectionMessage] = useState("");
   const [checkingConnection, setCheckingConnection] = useState(false);
   const connectionCheck = useRef<AbortController | null>(null);
-  const [destination, setDestination] = useState<Place>(DEFAULT_PLACE);
+  const [nearby, setNearby] = useState(true);
+  const [destination, setDestination] = useState<Place>(() =>
+    nearbyPlace(readTestLocation() ?? DEFAULT_ORIGIN),
+  );
   const [viewport, setViewport] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -297,6 +306,16 @@ export default function App() {
     connectionRevision,
   ]);
   useEffect(() => {
+    // Keep an active route's target stable; re-center only while browsing.
+    if (!nearby || navigating) return;
+    setDestination((current) =>
+      current.id.startsWith("nearby:") &&
+      distance(current, origin) < NEARBY_RECENTER_M
+        ? current
+        : nearbyPlace(origin),
+    );
+  }, [nearby, navigating, origin]);
+  useEffect(() => {
     setSelectedId("");
   }, [destination, preference, stay, evOnly]);
   useEffect(() => {
@@ -416,6 +435,7 @@ export default function App() {
       if (intent.action === "search" && intent.query) {
         const place = places.find((p) => p.name.includes(intent.query!));
         if (place) {
+          setNearby(false);
           setDestination(place);
           resetPreview();
           setTab("explore");
@@ -466,6 +486,7 @@ export default function App() {
           );
           if (getBackendUrl() !== source)
             throw new Error("Connection changed.");
+          setNearby(false);
           setDestination(place);
           setPreference(pref);
           setResult(response);
@@ -545,7 +566,15 @@ export default function App() {
     );
   }
   function chooseDestination(place: Place) {
+    setNearby(false);
     setDestination(place);
+    setDestinationOpen(false);
+    resetPreview();
+    setQuery("");
+    setTab("explore");
+  }
+  function searchNearMe() {
+    setNearby(true);
     setDestinationOpen(false);
     resetPreview();
     setQuery("");
@@ -606,13 +635,7 @@ export default function App() {
     setPickingTestLocation(false);
     resetPreview();
     if (searchNearby) {
-      setDestination({
-        ...point,
-        id: `test:${point.lat},${point.lng}`,
-        name: "테스트 위치 주변",
-        address: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`,
-        category: "테스트 목적지",
-      });
+      setNearby(true);
       setTab("explore");
     }
     setToast(
@@ -810,7 +833,9 @@ export default function App() {
               >
                 <Search size={27} />
                 <span className="destination-copy">
-                  <small>목적지 주변 주차장</small>
+                  <small>
+                    {nearby ? "현재 위치 기준 주차장" : "목적지 주변 주차장"}
+                  </small>
                   <strong>{destination.name}</strong>
                 </span>
                 <ChevronRight size={25} />
@@ -1361,6 +1386,14 @@ export default function App() {
               aria-label="목적지 이름"
             />
           </div>
+          <button className="place-option" onClick={searchNearMe}>
+            <Navigation size={26} />
+            <span>
+              <b>내 위치 주변</b>
+              <small>현재 위치 기준으로 주차장을 찾고 이동하면 갱신합니다</small>
+            </span>
+            <ChevronRight size={24} />
+          </button>
           <p className="modal-label">주변 장소 · 성수 지역 시연</p>
           {places
             .filter((p) => (p.name + p.address).includes(query))

@@ -28,7 +28,7 @@ const lots: Lot[] = data.lots.map(({ observed_age_seconds, ...lot }) => ({
 }));
 const round = (value: number, digits = 0) => Number(value.toFixed(digits));
 const point = ({ lat, lng }: Point): Point => ({ lat, lng });
-function distance(a: Point, b: Point) {
+export function distance(a: Point, b: Point) {
   const radians = (v: number) => (v * Math.PI) / 180;
   const lat1 = radians(a.lat),
     lat2 = radians(b.lat);
