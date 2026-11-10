@@ -13,6 +13,9 @@ type Props = {
   onSelect: (id: string) => void;
   navigating: boolean;
   moving: boolean;
+  testLocationActive: boolean;
+  pickingTestLocation: boolean;
+  onOriginChange: (point: Point) => void;
 };
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -30,12 +33,19 @@ export default function ParkingMap({
   onSelect,
   navigating,
   moving,
+  testLocationActive,
+  pickingTestLocation,
+  onOriginChange,
 }: Props) {
   const element = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const overlayRef = useRef<L.LayerGroup | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const originChangeRef = useRef(onOriginChange);
+  originChangeRef.current = onOriginChange;
+  const pickingRef = useRef(false);
+  pickingRef.current = pickingTestLocation && !moving && !navigating;
 
   // 지도 인스턴스는 한 번만 생성
   useEffect(() => {
@@ -49,11 +59,15 @@ export default function ParkingMap({
       minZoom: 11,
     });
     map.attributionControl.setPrefix(false);
-    L.tileLayer(TILE_URL, { maxZoom: 19, attribution: ATTRIBUTION }).addTo(
-      map,
-    );
+    L.tileLayer(TILE_URL, { maxZoom: 19, attribution: ATTRIBUTION }).addTo(map);
     overlayRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
+    map.on("click", (event: L.LeafletMouseEvent) => {
+      if (pickingRef.current) {
+        const point = event.latlng.wrap();
+        originChangeRef.current({ lat: point.lat, lng: point.lng });
+      }
+    });
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(element.current);
     return () => {
@@ -75,7 +89,10 @@ export default function ParkingMap({
     ]);
     map.fitBounds(bounds, {
       paddingTopLeft: [90, 140],
-      paddingBottomRight: [90, 100],
+      paddingBottomRight: [
+        90,
+        testLocationActive || pickingTestLocation ? 220 : 100,
+      ],
       maxZoom: 17,
     });
   };
@@ -85,6 +102,8 @@ export default function ParkingMap({
     origin.lat,
     origin.lng,
     destination.id,
+    destination.lat,
+    destination.lng,
     ...candidates.map((c) => c.lot.id),
   ].join("|");
   useEffect(() => {
@@ -165,7 +184,9 @@ export default function ParkingMap({
         riseOnHover: true,
         zIndexOffset: active ? 1000 : 0,
       });
-      marker.on("click", () => onSelectRef.current(candidate.lot.id));
+      marker.on("click", () => {
+        if (!pickingRef.current) onSelectRef.current(candidate.lot.id);
+      });
       marker.addTo(group);
       const el = marker.getElement();
       if (el) {
@@ -175,21 +196,40 @@ export default function ParkingMap({
       }
     }
 
-    L.marker(toLatLng(origin), {
+    const movable = testLocationActive && !moving && !navigating;
+    const vehicleMarker = L.marker(toLatLng(origin), {
       icon: L.divIcon({
         className: "osm-origin",
         html: '<span class="osm-origin-halo"></span><span class="osm-origin-dot"><svg viewBox="-10 -10 20 20" width="20" height="20"><path d="M0 -10L8 8L0 4L-8 8Z" fill="#fff"/></svg></span>',
         iconSize: [52, 52],
         iconAnchor: [26, 26],
       }),
-      keyboard: false,
-      interactive: false,
+      keyboard: movable,
+      interactive: movable,
+      draggable: movable,
+      title: movable ? "테스트 차량 위치: 끌어서 이동" : "차량 위치",
+      alt: movable ? "테스트 차량 위치: 끌어서 이동" : "차량 위치",
       zIndexOffset: 2000,
     }).addTo(group);
-  }, [candidates, ranks, selected, destination, origin, navigating]);
+    vehicleMarker.on("dragend", () => {
+      const position = vehicleMarker.getLatLng().wrap();
+      originChangeRef.current({ lat: position.lat, lng: position.lng });
+    });
+  }, [
+    candidates,
+    ranks,
+    selected,
+    destination,
+    origin,
+    navigating,
+    testLocationActive,
+    moving,
+  ]);
 
   return (
-    <div className="map">
+    <div
+      className={`map${pickingTestLocation ? " picking-test-location" : ""}`}
+    >
       <div
         className="map-leaflet"
         ref={element}

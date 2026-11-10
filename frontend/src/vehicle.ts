@@ -5,6 +5,7 @@ declare global {
     ParkIQNative?: {
       postMessage: (message: string) => void;
       getDefaultBackendUrl?: () => string;
+      isDebugBuild?: () => boolean;
     };
   }
 }
@@ -58,8 +59,13 @@ export async function navigate(
   candidate: Candidate,
   destination: Place,
   asWaypoint = false,
+  testLocation = false,
 ) {
   if (window.ParkIQNative) {
+    if (testLocation)
+      throw new Error(
+        "테스트 위치에서는 실제 차량 안내를 시작할 수 없습니다. GPS 위치로 복귀해 주세요.",
+      );
     if (candidate.lot.demo)
       throw new Error(
         "시연 주차장을 실제 차량으로 안내할 수 없습니다. 실데이터 모드를 연결해 주세요.",

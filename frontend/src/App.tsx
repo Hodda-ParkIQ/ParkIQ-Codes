@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownUp,
   CarFront,
@@ -34,6 +34,13 @@ import {
 } from "./backend-config";
 import ParkingMap from "./ParkingMap";
 import Modal from "./Modal";
+import TestLocationSettings from "./TestLocationSettings";
+import {
+  readTestLocation,
+  saveTestLocation,
+  testLocationAvailable,
+  validLocation,
+} from "./test-location";
 import type {
   Candidate,
   GleoCall,
@@ -106,7 +113,14 @@ export default function App() {
     readLocal("parkiq-theme", "light"),
   );
   const [places, setPlaces] = useState<Place[]>([]);
-  const [origin, setOrigin] = useState<Point>(DEFAULT_ORIGIN);
+  const [testOrigin, setTestOrigin] = useState<Point | null>(readTestLocation);
+  const testOriginRef = useRef(testOrigin);
+  testOriginRef.current = testOrigin;
+  const realOrigin = useRef<Point | null>(null);
+  const [pickingTestLocation, setPickingTestLocation] = useState(false);
+  const [origin, setOrigin] = useState<Point>(
+    () => testOrigin ?? DEFAULT_ORIGIN,
+  );
   const [preference, setPreference] = useState<Preference>(() =>
     readLocal("parkiq-preference", "balanced"),
   );
@@ -141,13 +155,18 @@ export default function App() {
   const [activeRouteId, setActiveRouteId] = useState("");
   const [mode, setMode] = useState<"demo" | "live">("demo");
   const [now, setNow] = useState(new Date());
-  const [locationLabel, setLocationLabel] = useState("성수동 시연 위치");
+  const [locationLabel, setLocationLabel] = useState(
+    testOrigin ? "테스트 위치" : "성수동 시연 위치",
+  );
   const selected = result?.candidates.find((c) => c.lot.id === selectedId);
   const selectedIsNavigating = navigating && selectedId === activeRouteId;
-  const visible =
-    result?.candidates.filter(
-      (c) => tab !== "saved" || favorites.includes(c.lot.id),
-    ) ?? [];
+  const visible = useMemo(
+    () =>
+      result?.candidates.filter(
+        (c) => tab !== "saved" || favorites.includes(c.lot.id),
+      ) ?? [],
+    [result, tab, favorites],
+  );
   const hasNative = !!window.ParkIQNative;
   const gleoHandler = useRef<(call: GleoCall) => void>(() => {});
   const generation = useRef(0);
@@ -159,13 +178,12 @@ export default function App() {
     }, 30000);
     const cleanup = subscribeVehicle((state) => {
       setMoving(state.moving);
-      if (
-        state.origin &&
-        Number.isFinite(state.origin.lat) &&
-        Number.isFinite(state.origin.lng)
-      ) {
-        setOrigin(state.origin);
-        setLocationLabel("차량 GPS 위치");
+      if (validLocation(state.origin)) {
+        realOrigin.current = state.origin;
+        if (!testOriginRef.current) {
+          setOrigin(state.origin);
+          setLocationLabel("차량 GPS 위치");
+        }
       }
     });
     if (window.ParkIQNative)
@@ -179,6 +197,10 @@ export default function App() {
       stopListening();
     };
   }, []);
+  useEffect(() => saveTestLocation(testOrigin), [testOrigin]);
+  useEffect(() => {
+    if (moving) setPickingTestLocation(false);
+  }, [moving]);
   useEffect(
     () =>
       subscribeBackendUrl((value) => {
@@ -317,6 +339,12 @@ export default function App() {
     }
   }
   async function startRoute(candidate = selected, asWaypoint = false) {
+    if (hasNative && testOriginRef.current) {
+      const message =
+        "테스트 위치에서는 실제 차량 안내를 시작할 수 없습니다. GPS 위치로 복귀해 주세요.";
+      setToast(message);
+      return message;
+    }
     if (!candidate || starting || loading)
       return "경로를 확인하고 있어요. 잠시 후 다시 시도해 주세요.";
     setStarting(true);
@@ -342,7 +370,12 @@ export default function App() {
         throw new Error(
           "주차장 상태가 변경되었습니다. 다른 주차장을 선택해 주세요.",
         );
-      const message = await navigate(checked, destination, asWaypoint);
+      const message = await navigate(
+        checked,
+        destination,
+        asWaypoint,
+        testOriginRef.current !== null,
+      );
       setSelectedId(checked.lot.id);
       setNavigating(true);
       setActiveRouteId(checked.lot.id);
@@ -449,6 +482,8 @@ export default function App() {
           );
         }
       } else if (call.action === "START_PARKING_ROUTE") {
+        if (hasNative && testOriginRef.current)
+          throw new Error("Test location is active.");
         const rank = Number(call.parameters.rank);
         const candidate = result?.candidates[rank - 1];
         if (!Number.isInteger(rank) || !candidate) {
@@ -468,7 +503,12 @@ export default function App() {
           if (getBackendUrl() !== source)
             throw new Error("Connection changed.");
           if (!checked) throw new Error("Parking availability changed.");
-          await navigate(checked, destination);
+          await navigate(
+            checked,
+            destination,
+            false,
+            testOriginRef.current !== null,
+          );
           setActiveRouteId(checked.lot.id);
           setSelectedId(checked.lot.id);
           setNavigating(true);
@@ -512,6 +552,18 @@ export default function App() {
     setTab("explore");
   }
   async function useLocation() {
+    testOriginRef.current = null;
+    setTestOrigin(null);
+    saveTestLocation(null);
+    setPickingTestLocation(false);
+    setOrigin(realOrigin.current ?? DEFAULT_ORIGIN);
+    setLocationLabel(
+      realOrigin.current
+        ? hasNative
+          ? "차량 GPS 위치"
+          : "브라우저 현재 위치"
+        : "성수동 시연 위치",
+    );
     if (hasNative) {
       try {
         await nativeRequest("vehicle.state", {});
@@ -526,13 +578,53 @@ export default function App() {
     }
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        setOrigin({ lat: p.coords.latitude, lng: p.coords.longitude });
-        setLocationLabel("브라우저 현재 위치");
-        resetPreview();
+        const point = { lat: p.coords.latitude, lng: p.coords.longitude };
+        realOrigin.current = point;
+        if (!testOriginRef.current) {
+          setOrigin(point);
+          setLocationLabel("브라우저 현재 위치");
+          resetPreview();
+        }
       },
       () => setToast("위치 권한을 확인해 주세요. 시연 위치를 유지합니다."),
       { timeout: 8000 },
     );
+  }
+  function applyTestLocation(point: Point, searchNearby = false) {
+    if (
+      !testLocationAvailable() ||
+      moving ||
+      navigating ||
+      !validLocation(point)
+    )
+      return;
+    testOriginRef.current = point;
+    setTestOrigin(point);
+    saveTestLocation(point);
+    setOrigin(point);
+    setLocationLabel("테스트 위치");
+    setPickingTestLocation(false);
+    resetPreview();
+    if (searchNearby) {
+      setDestination({
+        ...point,
+        id: `test:${point.lat},${point.lng}`,
+        name: "테스트 위치 주변",
+        address: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`,
+        category: "테스트 목적지",
+      });
+      setTab("explore");
+    }
+    setToast(
+      searchNearby
+        ? "테스트 위치 주변의 주차장을 찾습니다."
+        : "차량 테스트 위치를 변경했습니다.",
+    );
+  }
+  function pickTestLocation() {
+    if (moving || navigating || !testLocationAvailable()) return;
+    setSettingsOpen(false);
+    setPickingTestLocation(true);
   }
   function applyBackend(value: string) {
     connectionCheck.current?.abort();
@@ -585,12 +677,17 @@ export default function App() {
   }, []);
   const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
-  const pageCandidates = visible.slice(
-    currentPage * pageSize,
-    currentPage * pageSize + pageSize,
+  const pageCandidates = useMemo(
+    () =>
+      visible.slice(currentPage * pageSize, currentPage * pageSize + pageSize),
+    [visible, currentPage, pageSize],
   );
-  const ranks = Object.fromEntries(
-    (result?.candidates ?? []).map((c, i) => [c.lot.id, i + 1]),
+  const ranks = useMemo(
+    () =>
+      Object.fromEntries(
+        (result?.candidates ?? []).map((c, i) => [c.lot.id, i + 1]),
+      ),
+    [result],
   );
   useEffect(() => {
     setPage(0);
@@ -647,6 +744,7 @@ export default function App() {
       data-theme={theme}
       data-driving={moving}
       data-api-source={backendUrl ? "backend" : "internal"}
+      data-test-location={testOrigin !== null}
     >
       <div id="app-content" className="app-content">
         <header className="topbar">
@@ -870,21 +968,35 @@ export default function App() {
                       <h3>
                         {tab === "saved"
                           ? "저장한 주차장이 없습니다"
-                          : "주변에 주차장이 없습니다"}
+                          : "조회된 주차장이 없습니다"}
                       </h3>
                       <p>
                         {tab === "saved"
                           ? "목록에서 하트를 눌러 저장하세요."
-                          : "목적지 또는 충전 조건을 확인하세요."}
+                          : result?.mode === "live"
+                            ? "연결된 데이터에서 목적지 반경 2km의 주차장을 찾지 못했습니다. 목적지나 충전 조건을 변경하세요."
+                            : "목적지 또는 충전 조건을 확인하세요."}
                       </p>
                       <button
                         className="secondary"
                         onClick={() => {
-                          setEvOnly(false);
-                          setTab("explore");
+                          if (tab === "saved" || evOnly) {
+                            setEvOnly(false);
+                            setTab("explore");
+                          } else if (moving) {
+                            setVoiceOpen(true);
+                          } else {
+                            setDestinationOpen(true);
+                          }
                         }}
                       >
-                        전체 주차장 보기
+                        {tab === "saved"
+                          ? "주변 주차장 보기"
+                          : evOnly
+                            ? "충전 조건 해제"
+                            : moving
+                              ? "음성으로 다시 찾기"
+                              : "목적지 변경"}
                       </button>
                     </div>
                   ) : (
@@ -952,7 +1064,56 @@ export default function App() {
                 onSelect={selectCandidate}
                 navigating={selectedIsNavigating}
                 moving={moving}
+                testLocationActive={testOrigin !== null}
+                pickingTestLocation={pickingTestLocation}
+                onOriginChange={applyTestLocation}
               />
+              {(testOrigin || pickingTestLocation) && !moving && (
+                <div
+                  className="map-test-toolbar"
+                  role="region"
+                  aria-label="지도 테스트 위치 조작"
+                >
+                  <p role="status">
+                    {pickingTestLocation
+                      ? "지도에서 차량을 놓을 지점을 누르세요."
+                      : `테스트 위치 · ${origin.lat.toFixed(5)}, ${origin.lng.toFixed(5)}`}
+                  </p>
+                  <div>
+                    {pickingTestLocation ? (
+                      <button
+                        className="secondary"
+                        onClick={() => setPickingTestLocation(false)}
+                      >
+                        위치 선택 취소
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="secondary"
+                          disabled={navigating}
+                          onClick={pickTestLocation}
+                        >
+                          위치 옮기기
+                        </button>
+                        <button
+                          className="primary"
+                          disabled={navigating}
+                          onClick={() => applyTestLocation(origin, true)}
+                        >
+                          이 위치 주변 찾기
+                        </button>
+                        <button
+                          className="secondary"
+                          onClick={() => void useLocation()}
+                        >
+                          GPS 위치로 복귀
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               <button
                 className="map-location"
                 onClick={() => void useLocation()}
@@ -1275,6 +1436,16 @@ export default function App() {
                 "주소가 없으면 내부 시연, 주소가 있으면 서버 모드로 동작합니다."}
             </p>
           </section>
+          {testLocationAvailable() && (
+            <TestLocationSettings
+              origin={origin}
+              active={testOrigin !== null}
+              disabled={navigating}
+              onApply={applyTestLocation}
+              onPick={pickTestLocation}
+              onRestore={() => void useLocation()}
+            />
+          )}
           <div className="settings-option">
             <div>
               <b>음성 안내</b>
@@ -1335,16 +1506,6 @@ export default function App() {
               </button>
             ))}
           </div>
-          <button
-            className="secondary wide"
-            onClick={() => {
-              setOrigin(DEFAULT_ORIGIN);
-              setLocationLabel("성수동 시연 위치");
-              setToast("시연 위치로 변경했습니다.");
-            }}
-          >
-            시연 위치로 변경
-          </button>
         </Modal>
       )}
       {infoOpen && !moving && (

@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from ..models import ParkingLot
+from .seongdong import PUBLIC_PARKING_URL, enrich_coordinates, needs_coordinates
 
 
 class ProviderError(Exception):
@@ -64,6 +65,7 @@ def normalize(metadata: list[dict], occupancy: list[dict]) -> list[ParkingLot]:
                     id=f"seoul:{id_}",
                     source="seoul",
                     source_id=id_,
+                    coordinate_source=row.get("_coordinate_source", "seoul"),
                     name=row["PKLT_NM"],
                     address=row.get("ADDR", ""),
                     lat=lat,
@@ -93,6 +95,7 @@ class SeoulProvider:
 
     def __init__(self, key: str, base_url: str):
         self.key, self.base_url = key, base_url.rstrip("/")
+        self.diagnostics: dict = {}
 
     async def rows(self, client: httpx.AsyncClient, service: str) -> list[dict]:
         all_rows = []
@@ -122,7 +125,27 @@ class SeoulProvider:
         async with httpx.AsyncClient(timeout=15) as client:
             metadata = await self.rows(client, "GetParkInfo")
             occupancy = await self.rows(client, "GetParkingInfo")
+            self.diagnostics = {"coordinate_enriched": 0, "coordinate_reference": "not_needed"}
+            if needs_coordinates(metadata):
+                try:
+                    response = await client.get(PUBLIC_PARKING_URL)
+                    response.raise_for_status()
+                    references = response.json()
+                    if not isinstance(references, list) or not all(
+                        isinstance(row, dict) for row in references
+                    ):
+                        raise ValueError("invalid coordinate reference")
+                    metadata, count = enrich_coordinates(metadata, references)
+                    self.diagnostics = {
+                        "coordinate_enriched": count,
+                        "coordinate_reference": "seongdong_public_parking",
+                    }
+                except (httpx.HTTPError, ValueError, TypeError):
+                    # Keep usable primary-source records if the reference is unavailable.
+                    self.diagnostics["coordinate_reference"] = "unavailable"
         lots = normalize(metadata, occupancy)
+        self.diagnostics["metadata_rows"] = len(metadata)
+        self.diagnostics["normalized_rows"] = len(lots)
         if not lots:
             raise ProviderError("seoul returned no usable facilities")
         return lots

@@ -42,8 +42,8 @@ android {
         applicationId = "ai.parkiq.vehicle"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.3.0"
         buildConfigField("String", "BACKEND_API_URL", "\"${backendApiUrl.trimEnd('/')}\"")
     }
     buildFeatures { buildConfig = true }

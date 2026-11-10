@@ -30,6 +30,7 @@ class ParkingLot(Place):
     is_open: bool | None = None
     source: str
     source_id: str
+    coordinate_source: str | None = None
     observed_at: datetime | None = None
     fetched_at: datetime
     demo: bool = False

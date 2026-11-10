@@ -38,6 +38,7 @@ class Pipeline:
                         "state": "ok",
                         "count": len(lots),
                         "last_success": datetime.now(UTC).isoformat(),
+                        "diagnostics": getattr(provider, "diagnostics", {}),
                     }
                 except Exception:
                     # Upstream URLs may contain credentials. Never log exceptions/response bodies.

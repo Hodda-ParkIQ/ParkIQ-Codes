@@ -92,8 +92,13 @@ class MainActivity : Activity(), LocationListener {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 return !isTrusted(request.url.toString())
             }
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val uri = request.url
+                // Map tiles are images only; documents and scripts remain bundled/trusted.
+                if (uri.scheme == "https" && uri.host == "tile.openstreetmap.org" &&
+                    uri.port in listOf(-1, 443) && request.method == "GET" &&
+                    uri.path?.matches(Regex("/\\d+/\\d+/\\d+\\.png")) == true &&
+                    uri.query == null) return null
                 if (uri.scheme != "https" || uri.host != "appassets.androidplatform.net") {
                     return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(byteArrayOf()))
                 }
@@ -179,6 +184,7 @@ class MainActivity : Activity(), LocationListener {
         emit("parkiq:native-reply", obj)
     }
     inner class Bridge {
+        @JavascriptInterface fun isDebugBuild(): Boolean = BuildConfig.DEBUG
         @JavascriptInterface fun getDefaultBackendUrl(): String = BuildConfig.BACKEND_API_URL
         @JavascriptInterface fun postMessage(raw: String) {
             if (raw.length > 32768) return
