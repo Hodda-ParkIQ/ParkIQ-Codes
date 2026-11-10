@@ -21,12 +21,16 @@ def valid_coordinates(lat, lng) -> bool:
 
 
 def _name(value: str) -> str:
+    if not isinstance(value, str):
+        return ""
     value = unicodedata.normalize("NFKC", value)
     value = re.sub(r"\((?:구|시)\)$", "", value.strip())
     return re.sub(r"\s+", "", value.replace("공영주차장", ""))
 
 
 def _parcel(value: str) -> tuple[str, str] | None:
+    if not isinstance(value, str):
+        return None
     match = re.search(r"성동구\s+([가-힣0-9]+(?:동|가))\s+(\d+(?:-\d+)?)", value)
     return (match[1], match[2]) if match else None
 
