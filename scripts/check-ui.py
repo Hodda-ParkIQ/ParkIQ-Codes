@@ -169,7 +169,7 @@ def run():
         native = browser.new_page(viewport={"width": 1440, "height": 900})
         native.add_init_script("""
             window.nativeCalls=[];
-            window.ParkIQNative={postMessage(raw){
+            window.ParkIQNative={isTestBuild(){return true;},postMessage(raw){
                 const request=JSON.parse(raw);window.nativeCalls.push(request);
                 setTimeout(()=>{
                     if(request.method==='vehicle.state')window.dispatchEvent(new CustomEvent(

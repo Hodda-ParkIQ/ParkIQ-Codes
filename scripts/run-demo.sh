@@ -3,5 +3,5 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
-(cd frontend && corepack pnpm@10.20.0 install --frozen-lockfile && corepack pnpm@10.20.0 build)
-exec .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+(cd frontend && corepack pnpm@10.20.0 install --frozen-lockfile && VITE_ENABLE_TEST_TOOLS=true VITE_API_BASE_URL= corepack pnpm@10.20.0 build)
+exec env DATA_MODE=demo SYNC_ENABLED=false .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000

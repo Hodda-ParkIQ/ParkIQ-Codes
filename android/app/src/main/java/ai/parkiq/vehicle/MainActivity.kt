@@ -185,6 +185,7 @@ class MainActivity : Activity(), LocationListener {
     }
     inner class Bridge {
         @JavascriptInterface fun isDebugBuild(): Boolean = BuildConfig.DEBUG
+        @JavascriptInterface fun isTestBuild(): Boolean = BuildConfig.ENABLE_TEST_TOOLS
         @JavascriptInterface fun getDefaultBackendUrl(): String = BuildConfig.BACKEND_API_URL
         @JavascriptInterface fun postMessage(raw: String) {
             if (raw.length > 32768) return

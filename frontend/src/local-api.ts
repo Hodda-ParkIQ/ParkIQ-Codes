@@ -1,4 +1,5 @@
 import fixture from "./data/demo.json";
+import { distance } from "./geo";
 import type {
   Candidate,
   Intent,
@@ -28,15 +29,6 @@ const lots: Lot[] = data.lots.map(({ observed_age_seconds, ...lot }) => ({
 }));
 const round = (value: number, digits = 0) => Number(value.toFixed(digits));
 const point = ({ lat, lng }: Point): Point => ({ lat, lng });
-export function distance(a: Point, b: Point) {
-  const radians = (v: number) => (v * Math.PI) / 180;
-  const lat1 = radians(a.lat),
-    lat2 = radians(b.lat);
-  const h =
-    Math.sin((lat2 - lat1) / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(radians(b.lng - a.lng) / 2) ** 2;
-  return 6371008.8 * 2 * Math.asin(Math.sqrt(Math.min(1, h)));
-}
 function fee(lot: Lot, stay: number): number | null {
   if (lot.base_fee === null) return null;
   const remaining = Math.max(0, stay - lot.base_minutes);
@@ -54,6 +46,13 @@ export function localRecommendations(
   stay: number,
   evOnly: boolean,
 ): Result {
+  const now = Date.now();
+  const [walkingWeight, feeWeight] = {
+    balanced: [1.25, 0.15],
+    less_walking: [3.5, 0.1],
+    fastest: [1, 0],
+    cheapest: [1, 4],
+  }[preference];
   const nearby = lots.filter((lot) => distance(destination, lot) <= 2000);
   const candidates: Candidate[] = nearby
     .filter(
@@ -68,7 +67,7 @@ export function localRecommendations(
       const drive = round(Math.max(1, driveMeters / 250 + 1.5), 1),
         walk = round(Math.max(0.5, walkMeters / 75), 1);
       const age = lot.observed_at
-        ? (Date.now() - Date.parse(lot.observed_at)) / 1000
+        ? (now - Date.parse(lot.observed_at)) / 1000
         : Infinity;
       const stale = age > 600 || age < -60,
         unknown = stale || lot.available === null;
@@ -84,12 +83,6 @@ export function localRecommendations(
             : "low";
       const search = round(unknown ? 5 : 0.8 + 5 * occupancy ** 3, 1),
         cost = fee(lot, stay);
-      const [walkingWeight, feeWeight] = {
-        balanced: [1.25, 0.15],
-        less_walking: [3.5, 0.1],
-        fastest: [1, 0],
-        cheapest: [1, 4],
-      }[preference];
       const score =
         drive +
         search +

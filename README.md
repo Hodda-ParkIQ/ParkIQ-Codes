@@ -4,49 +4,50 @@
 
 UI 1.3은 현대차 ccNC와 Pleos 공식 가이드를 참고한 지도·목록 중심 구성입니다. 주간/야간 전환, 화면 높이에 따른 1~3곳 페이지 표시, 고정 안내 버튼, 주행 중 부분 음성 패널을 제공합니다. [화면 설계와 참고 자료](docs/UI_DESIGN.md)에 변경 근거와 검증 범위를 기록했습니다.
 
-## 바로 실행
+## Android Studio에서 바로 빌드
 
-Python 3.12 이상, Node.js 22, Corepack이 필요합니다.
+Android Studio에서 **`android` 폴더**를 열고 Gradle Sync 후 **Build APK(s)** 또는 **Run ▶**을 누릅니다. Android SDK 35가 필요하며 Gradle은 JDK 21을 사용합니다. 첫 빌드에 인터넷 연결이 필요합니다.
+
+- 기본 API: **https://testhyundai.devmultid.org**. 별도 `.env` 생성이나 서버 주소 입력 없이 연결합니다.
+- Gradle이 Node.js 22.22.1과 pnpm 10.20.0을 프로젝트에 자동으로 준비하고, 의존성 설치 → 웹 빌드 → assets 포함 → APK 생성을 수행합니다. 시스템 Node/Corepack/pnpm을 설치할 필요가 없습니다.
+- 기본 Debug와 Release 모두 실데이터를 사용합니다. 테스트 위치, 내부 시연 전환, 서버 주소 편집은 노출하지 않습니다. 이전 APK에서 저장한 빈 주소·다른 서버 주소·테스트 좌표는 적용하지 않습니다.
+- GPS 수신 전에는 위치 확인 화면을 표시합니다. 실제 위치를 받은 뒤 주변 주차장을 조회합니다. API 오류나 서버 시연 응답을 가상 데이터로 대체하지 않습니다.
+- 생성 APK: `android/app/build/outputs/apk/debug/app-debug.apk`. 배포용 사본: `release/ParkIQ-debug.apk`.
+
+명령줄에서도 동일한 기본값으로 빌드합니다.
 
 ```bash
-./scripts/run-demo.sh
+cd android
+./gradlew :app:assembleDebug
 ```
 
-- 앱: <http://localhost:8000>
-- API 문서: <http://localhost:8000/docs>
-- 상태: <http://localhost:8000/api/health>
-
-화면은 기본적으로 **앱 내부 가상 데이터**를 사용합니다. 서버 주소를 지정하면 백엔드 API로 전환됩니다. 위 명령으로 함께 실행하는 백엔드는 기본적으로 가상 데이터와 메모리 저장소를 사용합니다. API 키나 Docker 없이 성수 지역 시나리오를 실행합니다. 가상 시설·주차 대수와 거리 기반 추정 경로임을 화면과 API 응답에 표시합니다. 주차장 명칭·요금·대수는 실제 시설 정보가 아닙니다.
-
-## 앱의 데이터 연결 설정
-
-정차 상태에서 **설정 → 데이터 연결**을 엽니다.
-
-| 서버 주소 | 앱 동작 |
-| --- | --- |
-| 비어 있음 (기본값) | 앱에 포함된 가상 주차장 8곳, 목적지 4곳으로 추천·요금·음성 의도 해석을 수행. API 요청 없음 |
-| URL 저장됨 | 해당 서버의 `/api/health`, `/api/places`, `/api/recommendations`, `/api/voice/interpret`로 통신 |
-| URL이 있지만 연결 실패 | 오류와 재시도 표시. 내부 가상 데이터로 자동 전환하지 않음 |
-
-예: 웹 브라우저는 `http://localhost:8000`, 같은 PC의 Android 에뮬레이터는 `http://10.0.2.2:8000`, 다른 기기는 PC의 LAN 주소를 입력합니다. `/api` 접미사는 입력해도 한 번만 붙습니다. **연결 확인**은 저장 전 상태 점검이고 **주소 저장**이 실제 전환입니다. **서버 주소 지우고 내부 시연 사용**으로 서버 없이 돌아갑니다. 설정은 기기별로 보존되며 검색·설정은 주행 제한 중 잠깁니다.
-
-서버에 연결했다고 곧바로 실데이터가 되는 것은 아닙니다. 서버의 `DATA_MODE=demo`는 **서버 시연**, `DATA_MODE=live`는 실제 공급자 데이터입니다. 내부 시연은 항상 `demo=true`이고 실제 차량 내비게이션으로 안내하지 않습니다. 공공·민간 API 키는 백엔드 `.env`에만 보관합니다.
-
-서버 없이 웹만 실행하려면:
+웹만 실행할 때는 Node.js 22와 Corepack으로 다음을 실행합니다. 기본 API는 APK와 같습니다.
 
 ```bash
 cd frontend
 corepack pnpm@10.20.0 install --frozen-lockfile
 corepack pnpm@10.20.0 build
 corepack pnpm@10.20.0 preview
-# http://localhost:4173
 ```
 
-웹 빌드 기본 URL은 `frontend/.env.example`을 `frontend/.env.local`로 복사해 `VITE_API_BASE_URL`에 지정할 수도 있습니다. 브라우저에서 다른 origin의 서버에 연결할 때는 백엔드 `CORS_ORIGINS`에 웹 origin을 허용해야 합니다. HTTPS 웹 페이지에서는 HTTPS API를 사용하세요. 기기에서 저장한 설정(빈 주소 포함)이 빌드 기본값보다 우선합니다.
+웹의 다른 API 주소는 `VITE_API_BASE_URL`로 빌드 시 지정할 수 있습니다. 브라우저로 연결하려면 서버의 CORS 허용 목록에 웹 origin을 추가합니다. APK는 내장 UI와 네이티브 HTTP 전송기를 사용합니다. 공공·민간 API 키는 백엔드 `.env`에만 보관합니다.
+
+## 개발용 시연을 명시적으로 실행
+
+기본 빌드에는 적용되지 않습니다. API 키 없이 가상 시설·잔여 대수를 확인하는 개발용 명령입니다.
+
+```bash
+./scripts/run-demo.sh
+# 앱/API: http://localhost:8000
+```
+
+웹에서는 `VITE_ENABLE_TEST_TOOLS=true VITE_API_BASE_URL= corepack pnpm@10.20.0 build`, Android에서는 `./gradlew :app:assembleDebug -PenableTestTools=true`로 테스트 도구를 명시적으로 켭니다. Release에서는 이 옵션을 지정해도 테스트 도구가 꺼집니다.
+
+이 모드에서만 **설정 → 데이터 연결**로 서버 주소를 저장하거나 비워서 내부 시연으로 전환할 수 있습니다. 개발용 서버는 `-PbackendApiUrl=http://10.0.2.2:8000 -PenableTestTools=true`로 지정합니다. 실제 차량 안내에 가상 주차장·테스트 위치를 사용하지 않습니다.
 
 ## 테스트 중 차량 위치 옮기기 (1.3)
 
-정차 상태에서 **설정 → 테스트 위치**를 엽니다. 브라우저와 디버그 APK에서 제공하며 릴리스 APK에는 노출하지 않습니다.
+정차 상태에서 **설정 → 테스트 위치**를 엽니다. `VITE_ENABLE_TEST_TOOLS=true`인 웹과 `-PenableTestTools=true`로 빌드한 디버그 APK에서만 제공합니다. 기본 빌드와 릴리스 APK에는 노출하지 않습니다.
 
 - 위도·경도를 입력하거나 성수/서울숲/종로 프리셋 선택 후 **차량 위치 적용**: 출발 위치만 변경하고 기존 목적지는 유지합니다.
 - **이 위치 주변 찾기**: 출발 위치와 검색 목적지를 함께 바꿔 해당 지역 반경 2km의 주차장을 조회합니다.
@@ -66,7 +67,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-같은 <http://localhost:8000>에서 앱과 API를 제공합니다. 컨테이너 앱은 PostgreSQL 저장소를 사용하고, DB는 외부 포트를 열지 않습니다. `db/001_init.sql`이 최초 볼륨 생성 시 PostGIS 확장, geography(Point,4326), GiST 공간 인덱스를 생성합니다. 기존 DB에 적용할 때는 해당 SQL을 직접 실행하세요.
+로컬 <http://localhost:8000>에서 앱과 API를 제공합니다. 백엔드 기본값은 `DATA_MODE=live`, `SYNC_ENABLED=true`입니다. 기존 서버의 API 키를 `.env`에 유지하세요. 키가 없거나 수집되지 않은 지역은 빈 결과로 표시합니다. 웹 기본 API는 위의 원격 주소이며 로컬 API를 사용할 때는 `VITE_API_BASE_URL`을 지정해 빌드합니다. 컨테이너 앱은 PostgreSQL 저장소를 사용하고, DB는 외부 포트를 열지 않습니다. `db/001_init.sql`이 최초 볼륨 생성 시 PostGIS 확장, geography(Point,4326), GiST 공간 인덱스를 생성합니다. 기존 DB에 적용할 때는 해당 SQL을 직접 실행하세요.
 
 이미 8000 포트에서 로컬 서버가 실행 중이면 먼저 종료하세요. `docker compose down`으로 종료하며, DB 볼륨은 유지합니다.
 
@@ -84,7 +85,7 @@ CORS_EXTRA_ORIGINS=https://web.example.com   # 프론트엔드 주소(쉼표로 
 docker compose up -d --build app
 ```
 
-`/`는 API 안내 JSON을 반환하고, API는 그대로 `/api/*`에서 제공합니다. 이미지만 빌드할 때는 `docker build --target api -t parkiq-api .`를 사용합니다. Docker 없이 실행할 때는 `SERVE_FRONTEND=false`만 지정하면 됩니다. 프론트엔드는 빌드 시 `VITE_API_BASE_URL`이나 앱 설정 화면에서 이 서버 주소를 지정합니다. 기본값(`APP_TARGET=full`, `SERVE_FRONTEND=true`)은 기존처럼 앱과 API를 함께 제공합니다.
+`/`는 API 안내 JSON을 반환하고, API는 그대로 `/api/*`에서 제공합니다. 이미지만 빌드할 때는 `docker build --target api -t parkiq-api .`를 사용합니다. Docker 없이 실행할 때는 `SERVE_FRONTEND=false`만 지정하면 됩니다. 웹은 빌드 시 `VITE_API_BASE_URL`, APK는 `-PbackendApiUrl=https://...`로 이 서버 주소를 지정합니다. 기본값(`APP_TARGET=full`, `SERVE_FRONTEND=true`)은 기존처럼 앱과 API를 함께 제공합니다.
 
 ## 구현 기능
 
@@ -176,31 +177,15 @@ VALHALLA_URL=http://valhalla:8002 docker compose --profile routing up -d
 
 Pleos Connect는 AAOS 기반 네이티브 SDK를 제공합니다. 웹 UI는 `window.ParkIQNative`라는 **이 프로젝트의 자체 호스트 계약**으로 Kotlin과 통신하며, 공식 JavaScript SDK라고 가정하지 않습니다.
 
-Android SDK 35, JDK 17/21, Node.js 22, Corepack이 필요합니다. 먼저 프런트엔드 의존성을 설치합니다.
+빌드는 위의 **Android Studio에서 바로 빌드** 절차를 따릅니다. 별도 프런트엔드 준비 명령 없이 Gradle이 필요한 도구와 웹 assets를 준비합니다. Gradle 8.11.1 / AGP 8.9.2 / JDK 21 조합을 사용합니다.
 
-```bash
-cd frontend
-corepack pnpm@10.20.0 install --frozen-lockfile
-cd ../android
-./gradlew :app:assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-생성 APK: `android/app/build/outputs/apk/debug/app-debug.apk`. **UI·폰트·시연 데이터가 APK 안에 포함되어 백엔드 없이 시작합니다.** Gradle이 웹 production build와 assets 복사를 수행합니다. 화면 파일을 변경한 경우 APK를 다시 빌드·설치해야 합니다.
-
-서버 연결은 앱의 데이터 연결 설정에서 지정합니다. 빌드 기본값으로 지정하려면:
-
-```bash
-./gradlew :app:assembleDebug -PbackendApiUrl=http://10.0.2.2:8000
-```
-
-이 값은 API 서버 주소이며 화면을 내려받는 URL이 아닙니다. 미지정이면 내부 시연입니다. 이전 `-PparkiqUrl` 이름도 API 기본값의 별칭으로 지원합니다. UI는 `https://appassets.androidplatform.net/index.html`에서 `WebViewAssetLoader`로 로드하고 네이티브 HTTP 전송기가 API 요청을 처리하므로 Android 호스트에는 브라우저 CORS가 적용되지 않습니다.
+UI는 `https://appassets.androidplatform.net/index.html`에서 `WebViewAssetLoader`로 로드하고 네이티브 HTTP 전송기가 기본 API 요청을 처리합니다. Android 호스트에는 브라우저 CORS가 적용되지 않습니다. `-PbackendApiUrl=https://...`로 빌드 기본 API를 명시적으로 바꿀 수 있으며 이전 `-PparkiqUrl` 별칭도 지원합니다.
 
 릴리스는 HTTPS 서버가 필요합니다. 프로젝트는 release 서명 키를 포함하지 않습니다. Gleo App Schema는 [android/gleo-app-schema.json](android/gleo-app-schema.json)에 있으며 빌드 시 APK의 `assets/schema.json`으로 자동 복사합니다. 공식 규격의 함수 3개와 콜백을 구현했습니다. 실제 Gleo 사용에는 Pleos 프로젝트 등록, 스키마 심사/승인, 해당 환경의 권한과 서비스가 필요합니다. 웹 음성 시연은 Gleo 서비스와 별도의 브라우저 기능입니다. 호스트 마이크 버튼은 Android SpeechRecognizer/TTS를 사용하며, Gleo 호출은 등록된 Intent 경로로 별도 처리합니다.
 
 가상 시설을 차량으로 안내하는 요청은 차단합니다. 실제 차량 경로 요청은 `DATA_MODE=live`로 공급자 데이터를 연결한 후 사용하세요. 내비게이션 성공 표시는 SDK 호출 시점이 아니라 `onRoutingCompleted`/`onWaypointChanged`/`onRouteCancelled` 콜백에 따릅니다. 기획서의 기존 내비 경유지 시나리오는 차량 호스트 화면의 **기존 내비 경로에 경유지로 추가**로 제공합니다. 일반 안내는 주차장을 차량 목적지로 설정하고, 원래 목적지는 도보 도착지로 유지합니다.
 
-**2026-11-10 Pleos 에뮬레이터에서 1.2.0 설치와 내장 프런트 실행을 확인했습니다.** 설치돼 있던 앱은 서버에서 UI를 받던 1.0.0이었으며, 1.2.0으로 업데이트한 뒤 백엔드 서버 없이 내부 시연 화면이 표시됩니다. 이전에 관측했던 에뮬레이터 시스템 서비스 오류는 당시의 기록으로 [검증 결과](docs/VALIDATION.md)에 남겼습니다. 실차 실행, 네이티브 HTTP 실서버 통신, Gleo 스키마 심사/승인, 공급자 실계정 전체 수집은 별도 검증이 필요합니다.
+이전 버전의 에뮬레이터 검증과 이번 버전의 검증 범위는 [검증 결과](docs/VALIDATION.md)에 기록합니다.
 
 이미 빌드된 APK는 실행 중인 에뮬레이터 창으로 `release/ParkIQ-debug.apk`를 끌어 놓거나 아래 명령으로 업데이트합니다.
 
@@ -210,7 +195,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 "$HOME/Android/Sdk/platform-tools/adb" shell am start -n ai.parkiq.vehicle/.MainActivity
 ```
 
-소스 수정 후에는 `android` 폴더에서 `./gradlew :app:installDebug`를 실행하면 웹·APK 빌드와 연결된 기기 설치를 함께 수행합니다. 첫 실행에서 위치·마이크 권한 창이 나올 수 있습니다. 성수 시연 중 이동 시간이 비정상적으로 길면 에뮬레이터 Extended Controls → Location에 위도 `37.5385`, 경도 `127.0602`를 입력하세요.
+소스 수정 후에는 `android` 폴더에서 `./gradlew :app:installDebug`를 실행하면 웹·APK 빌드와 연결된 기기 설치를 함께 수행합니다. 첫 실행에서 위치·마이크 권한 창이 나올 수 있습니다. 실제 기기는 GPS를 사용합니다. 에뮬레이터에서 위치를 검증할 때는 Extended Controls → Location으로 GPS를 전달하세요.
 
 
 ## 개발 및 검증
@@ -227,9 +212,9 @@ corepack pnpm@10.20.0 build
 
 PostGIS URL이 없으면 DB 통합 테스트 1개만 건너뜁니다. [검증 결과](docs/VALIDATION.md)에 실제 실행 환경과 결과를 기록합니다. UI 기능 점검 스크립트는 `scripts/check-ui.py`이며 실행 중인 앱과 Chrome이 필요합니다.
 
-개발 서버를 분리할 때는 백엔드 `uvicorn ... --port 8000`, 프런트엔드에서 `corepack pnpm dev`를 실행합니다. 앱 설정에 `http://localhost:8000`을 저장하면 백엔드에 직접 연결합니다. Vite의 `/api` 프록시도 유지하지만 주소를 비워두면 내부 시연을 사용합니다.
+개발 서버를 분리할 때는 백엔드 `uvicorn ... --port 8000`, 프런트엔드에서 `VITE_API_BASE_URL=http://localhost:8000 corepack pnpm dev`를 실행합니다. 테스트 도구가 필요한 경우에만 `VITE_ENABLE_TEST_TOOLS=true`를 추가합니다.
 
-`scripts/check-api-modes.py`는 4173 포트의 정적 전용 웹 서버를 직접 띄워 내부/서버 모드 전환, CORS 통신, 오류 시 가상 데이터로 전환하지 않는 동작, 네이티브 전송 계약을 검사합니다. 데모 API가 8000 포트에서 실행 중이어야 합니다.
+`scripts/check-api-modes.py`는 4173 포트의 정적 전용 웹 서버를 직접 띄워 내부/서버 모드 전환, CORS 통신, 오류 시 가상 데이터로 전환하지 않는 동작, 네이티브 전송 계약을 검사합니다. 테스트 도구를 켜고 API 주소를 비운 웹 빌드와 데모 API(8000 포트)가 필요합니다. 기본 실데이터 빌드는 `scripts/check-live-defaults.py`로 검증합니다.
 
 웹과 APK 빌드 후 `.venv/bin/python scripts/package-project.py`로 소스·빌드된 웹 UI·디버그 APK를 `release/ParkIQ-project.zip`에 묶을 수 있습니다. 로컬 환경 파일·캐시·DB·가상환경은 포함하지 않습니다.
 

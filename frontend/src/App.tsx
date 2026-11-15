@@ -32,16 +32,12 @@ import {
   saveBackendUrl,
   subscribeBackendUrl,
 } from "./backend-config";
-import { distance } from "./local-api";
+import { distance, isPoint } from "./geo";
+import { testToolsEnabled } from "./runtime-config";
 import ParkingMap from "./ParkingMap";
 import Modal from "./Modal";
 import TestLocationSettings from "./TestLocationSettings";
-import {
-  readTestLocation,
-  saveTestLocation,
-  testLocationAvailable,
-  validLocation,
-} from "./test-location";
+import { readTestLocation, saveTestLocation } from "./test-location";
 import type {
   Candidate,
   GleoCall,
@@ -103,6 +99,7 @@ const money = (n: number | null) =>
 const minute = (n: number) => Math.ceil(n);
 
 export default function App() {
+  const allowTestTools = testToolsEnabled();
   const [backendUrl, setBackendUrlState] = useState(getBackendUrl);
   const [backendDraft, setBackendDraft] = useState(getBackendUrl);
   const [connectionRevision, setConnectionRevision] = useState(0);
@@ -128,6 +125,7 @@ export default function App() {
   const testOriginRef = useRef(testOrigin);
   testOriginRef.current = testOrigin;
   const realOrigin = useRef<Point | null>(null);
+  const [locationReady, setLocationReady] = useState(allowTestTools);
   const [pickingTestLocation, setPickingTestLocation] = useState(false);
   const [origin, setOrigin] = useState<Point>(
     () => testOrigin ?? DEFAULT_ORIGIN,
@@ -164,10 +162,16 @@ export default function App() {
   const [navigating, setNavigating] = useState(false),
     [starting, setStarting] = useState(false);
   const [activeRouteId, setActiveRouteId] = useState("");
-  const [mode, setMode] = useState<"demo" | "live">("demo");
-  const [now, setNow] = useState(new Date());
+  const [mode, setMode] = useState<"demo" | "live">(
+    allowTestTools ? "demo" : "live",
+  );
+  const [now, setNow] = useState(() => new Date());
   const [locationLabel, setLocationLabel] = useState(
-    testOrigin ? "테스트 위치" : "성수동 시연 위치",
+    testOrigin
+      ? "테스트 위치"
+      : allowTestTools
+        ? "성수동 시연 위치"
+        : "GPS 위치 확인 중",
   );
   const selected = result?.candidates.find((c) => c.lot.id === selectedId);
   const selectedIsNavigating = navigating && selectedId === activeRouteId;
@@ -182,31 +186,57 @@ export default function App() {
   const gleoHandler = useRef<(call: GleoCall) => void>(() => {});
   const generation = useRef(0);
 
+  function updateGpsLocation(point: Point, label: string) {
+    realOrigin.current = point;
+    if (testOriginRef.current) return;
+
+    // Vehicle speed events also carry the last GPS fix; keep pending requests alive.
+    setOrigin((current) =>
+      current.lat === point.lat && current.lng === point.lng ? current : point,
+    );
+    setLocationReady(true);
+    setLocationLabel(label);
+  }
+
   useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 1000);
-    const poll = setInterval(() => {
-      if (!document.hidden) setRefresh((x) => x + 1);
+    function updateClock() {
+      setNow(new Date());
+      clockTimer = window.setTimeout(updateClock, 60000 - (Date.now() % 60000));
+    }
+    let clockTimer = window.setTimeout(
+      updateClock,
+      60000 - (Date.now() % 60000),
+    );
+    const poll = window.setInterval(() => {
+      if (!document.hidden) setRefresh((count) => count + 1);
     }, 30000);
-    const cleanup = subscribeVehicle((state) => {
+    const unsubscribeVehicle = subscribeVehicle((state) => {
       setMoving(state.moving);
-      if (validLocation(state.origin)) {
-        realOrigin.current = state.origin;
-        if (!testOriginRef.current) {
-          setOrigin(state.origin);
-          setLocationLabel("차량 GPS 위치");
-        }
-      }
+      if (isPoint(state.origin))
+        updateGpsLocation(state.origin, "차량 GPS 위치");
     });
     if (window.ParkIQNative)
       void nativeRequest("vehicle.state", {}).catch(() => {});
-    const offGleo = subscribeGleo((call) => gleoHandler.current(call));
+    const unsubscribeGleo = subscribeGleo((call) => gleoHandler.current(call));
     return () => {
-      clearInterval(tick);
+      clearTimeout(clockTimer);
       clearInterval(poll);
-      cleanup();
-      offGleo();
+      unsubscribeVehicle();
+      unsubscribeGleo();
       stopListening();
     };
+  }, []);
+  useEffect(() => {
+    if (window.ParkIQNative || allowTestTools || !navigator.geolocation) return;
+    const watch = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        const point = { lat: coords.latitude, lng: coords.longitude };
+        updateGpsLocation(point, "현재 위치");
+      },
+      () => setLocationLabel("위치 권한과 GPS를 확인해 주세요"),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    );
+    return () => navigator.geolocation.clearWatch(watch);
   }, []);
   useEffect(() => saveTestLocation(testOrigin), [testOrigin]);
   useEffect(() => {
@@ -242,7 +272,6 @@ export default function App() {
     return () => controller.abort();
   }, [backendUrl, connectionRevision]);
   useEffect(() => () => connectionCheck.current?.abort(), []);
-  // Destination search: match curated places and every stored parking lot.
   useEffect(() => {
     if (!destinationOpen || !query.trim()) {
       setSearchResults(null);
@@ -294,6 +323,11 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController(),
       request = ++generation.current;
+    if (!locationReady) {
+      setLoading(false);
+      setResult(null);
+      return () => controller.abort();
+    }
     setLoading(true);
     setError("");
     api
@@ -334,6 +368,7 @@ export default function App() {
     refresh,
     backendUrl,
     connectionRevision,
+    locationReady,
   ]);
   useEffect(() => {
     // Keep an active route's target stable; re-center only while browsing.
@@ -387,6 +422,42 @@ export default function App() {
       setToast((e as Error).message);
     }
   }
+  async function requestParkingRoute(candidate: Candidate, asWaypoint = false) {
+    const source = getBackendUrl();
+    // Availability may change while a parking card is on screen.
+    const latest = await api.recommend(
+      origin,
+      destination,
+      preference,
+      stay,
+      evOnly,
+    );
+    if (getBackendUrl() !== source)
+      throw new Error(
+        "데이터 연결이 변경되었습니다. 주차장을 다시 선택하세요.",
+      );
+
+    setResult(latest);
+    const parking = latest.candidates.find(
+      (item) => item.lot.id === candidate.lot.id,
+    );
+    if (!parking)
+      throw new Error(
+        "주차장 상태가 변경되었습니다. 다른 주차장을 선택해 주세요.",
+      );
+
+    const message = await navigate(
+      parking,
+      destination,
+      asWaypoint,
+      testOriginRef.current !== null,
+    );
+    setSelectedId(parking.lot.id);
+    setNavigating(true);
+    setActiveRouteId(parking.lot.id);
+    return { parking: parking.lot, message };
+  }
+
   async function startRoute(candidate = selected, asWaypoint = false) {
     if (hasNative && testOriginRef.current) {
       const message =
@@ -397,43 +468,17 @@ export default function App() {
     if (!candidate || starting || loading)
       return "경로를 확인하고 있어요. 잠시 후 다시 시도해 주세요.";
     setStarting(true);
-    const source = getBackendUrl();
     try {
-      // Recheck occupancy immediately before handing a route to the vehicle.
-      const latest = await api.recommend(
-        origin,
-        destination,
-        preference,
-        stay,
-        evOnly,
-      );
-      const checked = latest.candidates.find(
-        (c) => c.lot.id === candidate.lot.id,
-      );
-      if (getBackendUrl() !== source)
-        throw new Error(
-          "데이터 연결이 변경되었습니다. 주차장을 다시 선택하세요.",
-        );
-      setResult(latest);
-      if (!checked)
-        throw new Error(
-          "주차장 상태가 변경되었습니다. 다른 주차장을 선택해 주세요.",
-        );
-      const message = await navigate(
-        checked,
-        destination,
+      const { parking, message } = await requestParkingRoute(
+        candidate,
         asWaypoint,
-        testOriginRef.current !== null,
       );
-      setSelectedId(checked.lot.id);
-      setNavigating(true);
-      setActiveRouteId(checked.lot.id);
       notify(message);
       setHistory((old) =>
         [
           {
-            id: checked.lot.id,
-            name: checked.lot.name,
+            id: parking.id,
+            name: parking.name,
             destination: destination.name,
             at: new Date().toISOString(),
           },
@@ -463,7 +508,8 @@ export default function App() {
         setTab("explore");
       }
       if (intent.action === "search" && intent.query) {
-        const place = places.find((p) => p.name.includes(intent.query!));
+        const search = intent.query;
+        const place = places.find((place) => place.name.includes(search));
         if (place) {
           setNearby(false);
           setDestination(place);
@@ -495,6 +541,10 @@ export default function App() {
       message = "The requested parking action was completed.",
       data = "[]";
     try {
+      if (!locationReady && call.action !== "CANCEL_PARKING_ROUTE")
+        throw new Error(
+          "GPS 위치를 확인하고 있습니다. 위치 권한과 GPS를 확인해 주세요.",
+        );
       if (call.action === "SEARCH_PARKING") {
         const query = String(call.parameters.query ?? "");
         const place = places.find((p) => p.name.includes(query));
@@ -541,28 +591,7 @@ export default function App() {
           status = "asking";
           message = "A valid parking rank is required.";
         } else {
-          const latest = await api.recommend(
-            origin,
-            destination,
-            preference,
-            stay,
-            evOnly,
-          );
-          const checked = latest.candidates.find(
-            (c) => c.lot.id === candidate.lot.id,
-          );
-          if (getBackendUrl() !== source)
-            throw new Error("Connection changed.");
-          if (!checked) throw new Error("Parking availability changed.");
-          await navigate(
-            checked,
-            destination,
-            false,
-            testOriginRef.current !== null,
-          );
-          setActiveRouteId(checked.lot.id);
-          setSelectedId(checked.lot.id);
-          setNavigating(true);
+          await requestParkingRoute(candidate);
           message =
             "The vehicle navigation accepted the parking route request.";
         }
@@ -613,15 +642,17 @@ export default function App() {
   async function useLocation() {
     testOriginRef.current = null;
     setTestOrigin(null);
-    saveTestLocation(null);
     setPickingTestLocation(false);
     setOrigin(realOrigin.current ?? DEFAULT_ORIGIN);
+    setLocationReady(realOrigin.current !== null || allowTestTools);
     setLocationLabel(
       realOrigin.current
         ? hasNative
           ? "차량 GPS 위치"
           : "브라우저 현재 위치"
-        : "성수동 시연 위치",
+        : allowTestTools
+          ? "성수동 시연 위치"
+          : "GPS 위치 확인 중",
     );
     if (hasNative) {
       try {
@@ -638,28 +669,17 @@ export default function App() {
     navigator.geolocation.getCurrentPosition(
       (p) => {
         const point = { lat: p.coords.latitude, lng: p.coords.longitude };
-        realOrigin.current = point;
-        if (!testOriginRef.current) {
-          setOrigin(point);
-          setLocationLabel("브라우저 현재 위치");
-          resetPreview();
-        }
+        updateGpsLocation(point, "브라우저 현재 위치");
+        if (!testOriginRef.current) resetPreview();
       },
-      () => setToast("위치 권한을 확인해 주세요. 시연 위치를 유지합니다."),
+      () => setToast("위치 권한과 GPS를 확인해 주세요."),
       { timeout: 8000 },
     );
   }
   function applyTestLocation(point: Point, searchNearby = false) {
-    if (
-      !testLocationAvailable() ||
-      moving ||
-      navigating ||
-      !validLocation(point)
-    )
-      return;
+    if (!allowTestTools || moving || navigating || !isPoint(point)) return;
     testOriginRef.current = point;
     setTestOrigin(point);
-    saveTestLocation(point);
     setOrigin(point);
     setLocationLabel("테스트 위치");
     setPickingTestLocation(false);
@@ -675,7 +695,7 @@ export default function App() {
     );
   }
   function pickTestLocation() {
-    if (moving || navigating || !testLocationAvailable()) return;
+    if (moving || navigating || !allowTestTools) return;
     setSettingsOpen(false);
     setPickingTestLocation(true);
   }
@@ -684,11 +704,10 @@ export default function App() {
     setCheckingConnection(false);
     try {
       const saved = saveBackendUrl(value);
-      setConnectionMessage(
-        saved
-          ? "서버 주소를 저장했습니다."
-          : "서버 없이 내부 시연 데이터를 사용합니다.",
-      );
+      const message = saved
+        ? "서버 주소를 저장했습니다."
+        : "서버 없이 내부 시연 데이터를 사용합니다.";
+      setConnectionMessage(message);
       setToast(
         saved ? "서버 주소를 저장했습니다." : "내부 시연으로 변경했습니다.",
       );
@@ -827,10 +846,12 @@ export default function App() {
             </span>
             <button
               className={`driving-badge ${moving ? "moving" : ""}`}
-              disabled={hasNative}
+              disabled={hasNative || !allowTestTools}
               onClick={() => setMoving(!moving)}
               aria-label={moving ? "주행 중 · 간편 모드" : "정차 중"}
-              title={hasNative ? "차량 상태" : "주행 모드 시연"}
+              title={
+                hasNative || !allowTestTools ? "차량 상태" : "주행 모드 시연"
+              }
             >
               <CarFront size={22} />
               <span>{moving ? "주행 중" : "정차 중"}</span>
@@ -1000,7 +1021,19 @@ export default function App() {
                   className={`parking-list ${loading ? "is-loading" : ""}`}
                   aria-busy={loading}
                 >
-                  {error ? (
+                  {!locationReady ? (
+                    <div className="empty" role="status">
+                      <MapPin size={36} />
+                      <h3>현재 위치를 확인하고 있습니다</h3>
+                      <p>위치 권한과 GPS를 켜면 주변 주차장을 조회합니다.</p>
+                      <button
+                        className="secondary"
+                        onClick={() => void useLocation()}
+                      >
+                        현재 위치 확인
+                      </button>
+                    </div>
+                  ) : error ? (
                     <div className="empty error">
                       <WifiOff size={36} />
                       <h3>주차 정보를 불러올 수 없습니다</h3>
@@ -1118,6 +1151,8 @@ export default function App() {
                 selected={selected}
                 destination={destination}
                 origin={origin}
+                locationReady={locationReady}
+                destinationReady={locationReady || !nearby}
                 onSelect={selectCandidate}
                 navigating={selectedIsNavigating}
                 moving={moving}
@@ -1420,7 +1455,9 @@ export default function App() {
             <Navigation size={26} />
             <span>
               <b>내 위치 주변</b>
-              <small>현재 위치 기준으로 주차장을 찾고 이동하면 갱신합니다</small>
+              <small>
+                현재 위치 기준으로 주차장을 찾고 이동하면 갱신합니다
+              </small>
             </span>
             <ChevronRight size={24} />
           </button>
@@ -1428,26 +1465,26 @@ export default function App() {
             {query.trim() ? "검색 결과 · 장소·주차장" : "추천 장소"}
           </p>
           {shownPlaces.map((place) => (
-              <button
-                className="place-option"
-                key={place.id}
-                onClick={() => chooseDestination(place)}
-              >
-                {place.category === "주차장" ? (
-                  <ParkingSquare size={26} />
-                ) : (
-                  <MapPin size={26} />
-                )}
-                <span>
-                  <b>{place.name}</b>
-                  <small>
-                    {place.category === "주차장" ? "주차장 · " : ""}
-                    {place.address}
-                  </small>
-                </span>
-                <ChevronRight size={24} />
-              </button>
-            ))}
+            <button
+              className="place-option"
+              key={place.id}
+              onClick={() => chooseDestination(place)}
+            >
+              {place.category === "주차장" ? (
+                <ParkingSquare size={26} />
+              ) : (
+                <MapPin size={26} />
+              )}
+              <span>
+                <b>{place.name}</b>
+                <small>
+                  {place.category === "주차장" ? "주차장 · " : ""}
+                  {place.address}
+                </small>
+              </span>
+              <ChevronRight size={24} />
+            </button>
+          ))}
           {searching && shownPlaces.length === 0 && (
             <p className="empty-text">검색 중…</p>
           )}
@@ -1477,7 +1514,8 @@ export default function App() {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="http://10.0.2.2:8000"
+              readOnly={!allowTestTools}
+              placeholder="https://testhyundai.devmultid.org"
               onChange={(event) => {
                 connectionCheck.current?.abort();
                 setCheckingConnection(false);
@@ -1493,25 +1531,31 @@ export default function App() {
               >
                 {checkingConnection ? "확인 중" : "연결 확인"}
               </button>
-              <button
-                className="primary"
-                onClick={() => applyBackend(backendDraft)}
-              >
-                주소 저장
-              </button>
+              {allowTestTools && (
+                <button
+                  className="primary"
+                  onClick={() => applyBackend(backendDraft)}
+                >
+                  주소 저장
+                </button>
+              )}
             </div>
-            <button
-              className="connection-local"
-              onClick={() => applyBackend("")}
-            >
-              서버 주소 지우고 내부 시연 사용
-            </button>
+            {allowTestTools && (
+              <button
+                className="connection-local"
+                onClick={() => applyBackend("")}
+              >
+                서버 주소 지우고 내부 시연 사용
+              </button>
+            )}
             <p className="connection-message" role="status">
               {connectionMessage ||
-                "주소가 없으면 내부 시연, 주소가 있으면 서버 모드로 동작합니다."}
+                (allowTestTools
+                  ? "주소가 없으면 내부 시연, 주소가 있으면 서버 모드로 동작합니다."
+                  : "실제 주차장 정보를 제공하는 서버에 연결합니다.")}
             </p>
           </section>
-          {testLocationAvailable() && (
+          {allowTestTools && (
             <TestLocationSettings
               origin={origin}
               active={testOrigin !== null}

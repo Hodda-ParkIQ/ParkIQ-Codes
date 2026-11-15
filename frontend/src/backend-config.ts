@@ -1,3 +1,5 @@
+import { DEFAULT_BACKEND_URL, testToolsEnabled } from "./runtime-config";
+
 const KEY = "parkiq-backend-url";
 const EVENT = "parkiq:backend-config";
 
@@ -26,23 +28,25 @@ export function normalizeBackendUrl(value: string): string {
 }
 
 export function getBackendUrl(): string {
-  try {
-    const saved = localStorage.getItem(KEY);
-    if (saved !== null) return saved.trim();
-  } catch {
-    /* Storage may be unavailable; use the packaged default. */
+  const allowTestTools = testToolsEnabled();
+  if (allowTestTools) {
+    try {
+      const saved = localStorage.getItem(KEY);
+      if (saved !== null) return saved.trim();
+    } catch {
+      /* Storage may be unavailable; use the packaged default. */
+    }
   }
-  const env = (import.meta as ImportMeta & { env?: Record<string, string> })
-    .env;
+  const fallback = allowTestTools ? "" : DEFAULT_BACKEND_URL;
   const configured =
     window.ParkIQNative?.getDefaultBackendUrl?.() ??
-    env?.VITE_API_BASE_URL ??
-    "";
-  // Invalid non-empty configuration remains a server-mode error; it never selects demo silently.
-  return configured.trim();
+    import.meta.env.VITE_API_BASE_URL ??
+    fallback;
+  return configured.trim() || fallback;
 }
 
 export function saveBackendUrl(value: string): string {
+  if (!testToolsEnabled()) throw new Error("이 앱은 기본 서버에 연결됩니다.");
   const normalized = normalizeBackendUrl(value);
   // Empty is a saved choice, so it overrides a build-time default as well.
   localStorage.setItem(KEY, normalized);

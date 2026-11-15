@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client():
-    with TestClient(create_app(Settings(_env_file=None))) as client:
+    with TestClient(create_app(Settings(_env_file=None, data_mode="demo"))) as client:
         yield client
 
 
@@ -90,9 +90,15 @@ def test_fee_uses_increment_rounding_and_daily_cap():
 
 
 def test_live_mode_never_seeds_demo():
-    with TestClient(create_app(Settings(_env_file=None, data_mode="live"))) as client:
+    settings = Settings(_env_file=None)
+    assert settings.data_mode == "live" and settings.sync_enabled is True
+    with TestClient(create_app(settings)) as client:
         data = client.post("/api/recommendations", json=request_body()).json()
         assert data["mode"] == "live" and data["candidates"] == []
+        places = client.get("/api/places").json()
+        assert places["source"] == "curated_destinations"
+        assert not any("시연" in p["category"] for p in places["places"])
+        assert client.get("/api/places", params={"q": "성수 다이닝"}).json()["places"] == []
 
 
 def test_sync_requires_configured_credentials(client):

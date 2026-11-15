@@ -82,12 +82,21 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
 
     @app.get("/api/places")
     async def places(q: str = Query(default="", max_length=100)):
-        # Curated destinations, plus any stored parking lot whose name/address matches
-        # so drivers can search outside the curated area. Arbitrary coordinates are
-        # accepted by /recommendations.
         q = q.strip()
-        curated = [p for p in PLACES if q.lower() in (p.name + p.address).lower()]
+        query = q.lower()
+        curated = [
+            p
+            for p in PLACES
+            if (settings.data_mode == "demo" or p.id != "seongsu-dining")
+            and query in (p.name + p.address).lower()
+        ]
         lots = await repo.search(q, 30) if q else []
+        if q:
+            source = "curated_and_parking_lots"
+        elif settings.data_mode == "demo":
+            source = "curated_demo_destinations"
+        else:
+            source = "curated_destinations"
         return {
             "places": curated
             + [
@@ -101,7 +110,7 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
                 )
                 for lot in lots
             ],
-            "source": "curated_and_parking_lots" if q else "curated_demo_destinations",
+            "source": source,
         }
 
     @app.post("/api/recommendations", response_model=RecommendationResponse)
@@ -131,8 +140,6 @@ def create_app(settings: Settings | None = None, repository: Repository | None =
         return {"providers": await pipeline.sync(), "at": datetime.now(UTC)}
 
     dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-    # In the source checkout frontend is alongside backend; in Docker it is /app/frontend/dist.
-    dist = dist if dist.exists() else Path(__file__).resolve().parents[3] / "frontend" / "dist"
     if settings.serve_frontend and dist.is_dir():
         app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
     else:

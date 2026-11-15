@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Point } from "./types";
-import { validLocation } from "./test-location";
+import { isPoint } from "./geo";
 
 const presets = [
   { name: "성수", lat: 37.5385, lng: 127.0602 },
@@ -33,7 +33,7 @@ export default function TestLocationSettings({
   }, [origin.lat, origin.lng]);
   function apply(searchNearby: boolean) {
     const point = { lat: Number(lat), lng: Number(lng) };
-    if (!lat.trim() || !lng.trim() || !validLocation(point)) {
+    if (!lat.trim() || !lng.trim() || !isPoint(point)) {
       setError("위도는 -90~90, 경도는 -180~180 사이의 숫자를 입력하세요.");
       return;
     }

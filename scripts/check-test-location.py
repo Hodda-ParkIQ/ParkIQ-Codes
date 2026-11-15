@@ -174,7 +174,7 @@ def run():
                 native.add_init_script(
                     """
                     window.nativeCalls=[];
-                    window.ParkIQNative={isDebugBuild(){return DEBUG;},
+                    window.ParkIQNative={isTestBuild(){return DEBUG;},isDebugBuild(){return DEBUG;},
                       getDefaultBackendUrl(){return 'https://backend.test';},
                       postMessage(raw){
                         const request=JSON.parse(raw);window.nativeCalls.push(request);

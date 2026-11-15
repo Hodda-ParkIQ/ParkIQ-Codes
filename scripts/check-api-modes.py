@@ -170,7 +170,7 @@ def run():
                 """
                 const fixtures=FIXTURES;
                 window.nativeCalls=[];window.heldReplies=[];window.holdRecommendations=false;
-                window.ParkIQNative={getDefaultBackendUrl(){return 'http://native-server.test:8000';},
+                window.ParkIQNative={isTestBuild(){return true;},getDefaultBackendUrl(){return 'http://native-server.test:8000';},
                   postMessage(raw){
                     const request=JSON.parse(raw);window.nativeCalls.push(request);
                     setTimeout(()=>{

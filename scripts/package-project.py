@@ -24,7 +24,9 @@ def main():
             == (ROOT / "android/gleo-app-schema.json").read_bytes()
         )
     shutil.copy2(apk, OUT / "ParkIQ-debug.apk")
-    preview = ROOT / "artifacts/vehicle-internal.png"
+    preview = ROOT / "artifacts/emulator-live.png"
+    if not preview.exists():
+        preview = ROOT / "artifacts/vehicle-live.png"
     if preview.exists():
         shutil.copy2(preview, OUT / "ParkIQ-preview.png")
     files = [

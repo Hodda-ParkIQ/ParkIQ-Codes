@@ -32,6 +32,12 @@ async def recommend(
         and (not req.ev_only or lot.ev is True)
         and (not req.accessible_only or lot.accessible is True)
     ]
+    walk_weight, cost_weight = {
+        "balanced": (1.25, 0.15),
+        "less_walking": (3.5, 0.1),
+        "fastest": (1.0, 0.0),
+        "cheapest": (1.0, 4.0),
+    }[req.preference]
 
     async def evaluate(lot: ParkingLot) -> Recommendation:
         route = await router.route(req.origin, lot, req.destination)
@@ -51,12 +57,6 @@ async def recommend(
         )
         search = round(5.0 if unknown else 0.8 + 5 * occupancy**3, 1)
         cost = fee(lot, req.stay_minutes)
-        walk_weight, cost_weight = {
-            "balanced": (1.25, 0.15),
-            "less_walking": (3.5, 0.1),
-            "fastest": (1.0, 0.0),
-            "cheapest": (1.0, 4.0),
-        }[req.preference]
         score = route.drive.minutes + search + route.walk.minutes * walk_weight
         score += (cost / 1000 if cost is not None else 8) * cost_weight
         score += 3 if unknown else 2 if risk == "high" else 0
@@ -85,10 +85,9 @@ async def recommend(
             walk_path=route.walk.path,
         )
 
-    candidates = sorted(
-        await asyncio.gather(*(evaluate(lot) for lot in lots)),
-        key=lambda item: (item.score, item.lot.id),
-    )[: req.limit]
+    candidates = await asyncio.gather(*(evaluate(lot) for lot in lots))
+    candidates.sort(key=lambda item: (item.score, item.lot.id))
+    candidates = candidates[: req.limit]
     warnings = []
     if settings.data_mode == "demo":
         warnings.append("가상 주차장·잔여 대수로 구성된 시연 데이터입니다.")

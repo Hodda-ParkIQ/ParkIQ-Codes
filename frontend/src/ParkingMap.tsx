@@ -10,6 +10,8 @@ type Props = {
   selected?: Candidate;
   destination: Place;
   origin: Point;
+  locationReady: boolean;
+  destinationReady: boolean;
   onSelect: (id: string) => void;
   navigating: boolean;
   moving: boolean;
@@ -30,6 +32,8 @@ export default function ParkingMap({
   selected,
   destination,
   origin,
+  locationReady,
+  destinationReady,
   onSelect,
   navigating,
   moving,
@@ -48,7 +52,6 @@ export default function ParkingMap({
   pickingRef.current = pickingTestLocation && !moving && !navigating;
   const fitAllRef = useRef<() => void>(() => {});
 
-  // 지도 인스턴스는 한 번만 생성
   useEffect(() => {
     if (!element.current) return;
     const map = L.map(element.current, {
@@ -80,7 +83,6 @@ export default function ParkingMap({
       mapRef.current = null;
       overlayRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fitAll = () => {
@@ -106,7 +108,6 @@ export default function ParkingMap({
   };
   fitAllRef.current = fitAll;
 
-  // 후보·목적지·출발지가 바뀌면 화면 맞춤
   const boundsKey = [
     origin.lat,
     origin.lng,
@@ -119,10 +120,8 @@ export default function ParkingMap({
   ].join("|");
   useEffect(() => {
     fitAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boundsKey]);
 
-  // 주행 중에는 지도 조작 잠금
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -137,7 +136,6 @@ export default function ParkingMap({
     handlers.forEach((h) => (moving ? h.disable() : h.enable()));
   }, [moving]);
 
-  // 경로·마커 다시 그리기
   useEffect(() => {
     const group = overlayRef.current;
     if (!group) return;
@@ -168,17 +166,18 @@ export default function ParkingMap({
       }).addTo(group);
     }
 
-    L.marker(toLatLng(destination), {
-      icon: L.divIcon({
-        className: "osm-destination",
-        html: '<span class="osm-destination-dot"></span><span class="osm-destination-label">목적지</span>',
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-      }),
-      keyboard: false,
-      interactive: false,
-      zIndexOffset: 500,
-    }).addTo(group);
+    if (destinationReady)
+      L.marker(toLatLng(destination), {
+        icon: L.divIcon({
+          className: "osm-destination",
+          html: '<span class="osm-destination-dot"></span><span class="osm-destination-label">목적지</span>',
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        }),
+        keyboard: false,
+        interactive: false,
+        zIndexOffset: 500,
+      }).addTo(group);
 
     for (const candidate of candidates) {
       const active = selected?.lot.id === candidate.lot.id;
@@ -208,6 +207,7 @@ export default function ParkingMap({
     }
 
     const movable = testLocationActive && !moving && !navigating;
+    if (!locationReady) return;
     const vehicleMarker = L.marker(toLatLng(origin), {
       icon: L.divIcon({
         className: "osm-origin",
@@ -232,6 +232,8 @@ export default function ParkingMap({
     selected,
     destination,
     origin,
+    locationReady,
+    destinationReady,
     navigating,
     testLocationActive,
     moving,

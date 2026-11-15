@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    data_mode: Literal["demo", "live"] = "demo"
+    data_mode: Literal["demo", "live"] = "live"
     repository: Literal["memory", "postgres"] = "memory"
     database_url: SecretStr = SecretStr("postgresql://parkiq:parkiq@localhost:5432/parkiq")
     seoul_api_key: SecretStr = SecretStr("")
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     valhalla_url: str = ""
     admin_api_key: SecretStr = SecretStr("")
     sync_interval_seconds: int = 300
-    sync_enabled: bool = False
+    sync_enabled: bool = True
     stale_after_seconds: int = 600
     # false = API-only hosting: never mount the built frontend, even if present.
     serve_frontend: bool = True

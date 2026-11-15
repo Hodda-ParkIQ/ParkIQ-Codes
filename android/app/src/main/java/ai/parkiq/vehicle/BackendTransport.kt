@@ -5,21 +5,31 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 
-/** JSON API transport from bundled UI to the explicitly configured backend. */
 class BackendTransport {
+    private val allowedMethods = mapOf(
+        "/health" to "GET",
+        "/places" to "GET",
+        "/recommendations" to "POST",
+        "/voice/interpret" to "POST"
+    )
+
     fun request(params: JSONObject): JSONObject {
         val base = params.getString("baseUrl").trimEnd('/')
         val uri = URI(base)
-        require(uri.scheme in setOf("http", "https") && uri.host != null &&
+        require((uri.scheme == "http" || uri.scheme == "https") && uri.host != null &&
             uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null) {
             "서버 주소가 올바르지 않습니다."
         }
-        require(BuildConfig.DEBUG || uri.scheme == "https") { "릴리스 앱은 HTTPS 서버를 사용해야 합니다." }
+        require(BuildConfig.ENABLE_TEST_TOOLS || uri.scheme == "https") { "HTTPS 서버를 사용해야 합니다." }
+        require(BuildConfig.ENABLE_TEST_TOOLS || base == BuildConfig.BACKEND_API_URL.removeSuffix("/api")) {
+            "앱에 설정된 서버만 사용할 수 있습니다."
+        }
         val path = params.getString("path")
+        val endpoint = URI(path)
         val method = params.optString("method", "GET")
-        val allowed = mapOf("/health" to "GET", "/places" to "GET",
-            "/recommendations" to "POST", "/voice/interpret" to "POST")
-        require(allowed[path] == method) { "지원하지 않는 API 요청입니다." }
+        require(endpoint.scheme == null && endpoint.rawAuthority == null && endpoint.rawFragment == null &&
+            allowedMethods[endpoint.path] == method &&
+            (endpoint.rawQuery == null || endpoint.path == "/places")) { "지원하지 않는 API 요청입니다." }
         val connection = URL("$base/api$path").openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = 4000
@@ -30,7 +40,8 @@ class BackendTransport {
             if (method == "POST") {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.outputStream.use { it.write(params.optString("body", "{}").toByteArray(Charsets.UTF_8)) }
+                val requestBody = params.optString("body", "{}").toByteArray(Charsets.UTF_8)
+                connection.outputStream.use { it.write(requestBody) }
             }
             val status = connection.responseCode
             val stream = if (status >= 400) connection.errorStream else connection.inputStream

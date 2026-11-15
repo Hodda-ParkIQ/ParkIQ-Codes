@@ -6,6 +6,7 @@ declare global {
       postMessage: (message: string) => void;
       getDefaultBackendUrl?: () => string;
       isDebugBuild?: () => boolean;
+      isTestBuild?: () => boolean;
     };
   }
 }
